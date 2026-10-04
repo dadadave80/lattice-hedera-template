@@ -127,7 +127,7 @@ A facet marked *recipe* is a Lattice facet named in `packages/foundry/diamond.re
 | `packages/foundry/contracts/TokenSaleV2.sol` | The facet used in the upgrade walkthrough. |
 | `packages/foundry/scripts-js/generateTsAbis.js` | Gives the frontend one `Diamond` contract whose ABI is the union of its facets. |
 | `packages/nextjs/app/page.tsx` | The sale page. |
-| `packages/nextjs/app/diamond/page.tsx` | The facet table and the upgrade tool. |
+| `packages/nextjs/app/diamond/page.tsx` | The facet table, the Lattice Studio card and the upgrade tool. |
 
 A facet holds no state. Each Lattice module is three files: an interface, a library with all the logic and a storage struct at its own slot, and a facet that forwards to the library. That split is why an upgrade can replace a facet without touching what the diamond remembers.
 
@@ -174,6 +174,8 @@ followed by two init steps, `ChainlinkAdapterInit` and `HTSAdapterInit`, that ma
 4. `yarn foundry:test`, then `yarn foundry:deploy --network hedera_testnet`. The deploy script adds `TokenSale` to what the recipe names.
 
 A diamond without the sale needs no Solidity at all. Choose Hedera Testnet in Studio and deploy it from the app with a wallet, or export Studio's Foundry script and run it, which is how the Studio diamond in the table at the top was deployed. Either way it goes through `LatticeFactory`, Studio's default path; the CreateX path is not available because CreateX is not on Hedera. Lattice's shared contracts a recipe needs and the chain does not have yet go out first, through Arachnid's deterministic deployment proxy, and Studio verifies the diamond it deploys on Sourcify.
+
+The live diamond opens in Studio too. The Lattice Studio card on the Diamond page reads the diamond's loupe, names each facet from Studio's catalog by the exact set of selectors it serves, and links to Studio with those facets on the sheet. For each one it shows the catalog's summary, the storage namespace the facet owns, and whether Lattice's shared release of it has code on the network. Facets the catalog does not have, such as `TokenSale` and its upgrades, are listed as this template's own and stay out of the link. The link carries facets, not the diamond's init history: its recipe runs no init, so Studio flags each facet that takes one, even though the live diamond ran its inits when it was created. The card only reads; upgrade the diamond with a cut.
 
 What to know:
 

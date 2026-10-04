@@ -56,9 +56,10 @@ Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_se
 | `packages/foundry/scripts-js/verifyDeployment.js` | Runs after a Hedera deploy: verifies on Sourcify every contract the broadcast record lists. |
 | `packages/foundry/lib/lattice` | Lattice, pinned by tag in `foundry.lock`. Do not edit. |
 | `packages/nextjs/app/page.tsx` | Sale page: `components/sale/SaleCard.tsx` and `AdminCard.tsx`. |
-| `packages/nextjs/app/diamond/page.tsx` | Diamond page: `components/diamond/FacetTable.tsx` and `UpgradeCard.tsx`. |
+| `packages/nextjs/app/diamond/page.tsx` | Diamond page: `components/diamond/FacetTable.tsx`, `StudioCard.tsx` and `UpgradeCard.tsx`. |
 | `packages/nextjs/utils/sale/units.ts` | Tinybar and weibar conversion. |
 | `packages/nextjs/utils/diamond/planCut.ts` | Turns a facet's exported selectors into Add and Replace cuts. |
+| `packages/nextjs/utils/studio/` | Reads Lattice Studio's catalog, names a diamond's facets by their selectors, and builds the Studio link. `studioLink.ts` encodes as `scripts-js/studioLink.js` does. |
 
 ## How to change things
 
@@ -103,7 +104,7 @@ UI: `HederaAddress` from `~~/components/scaffold-hbar` shows an address with its
 - Contract tests extend `SaleTestBase` and call everything through the diamond, the way a wallet does.
 - Test behaviour, including the revert a caller would see. Lattice errors come from `@lattice/interfaces/...`, the sale's from `ITokenSale`.
 - Script helpers in `scripts-js` are tested with the Node test runner: put a `*.test.js` beside the file and `yarn foundry:test` runs it.
-- Frontend logic that can be wrong (units, cut planning) lives in `packages/nextjs/utils` with a `*.test.ts` beside it.
+- Frontend logic that can be wrong (units, cut planning, catalog matching) lives in `packages/nextjs/utils` with a `*.test.ts` beside it.
 
 ## Networks
 

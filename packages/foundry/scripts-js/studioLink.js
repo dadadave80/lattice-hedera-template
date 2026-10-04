@@ -10,6 +10,7 @@ const STUDIO_URL =
  * The "Open in Lattice Studio" link for a recipe. Studio reads a recipe from the URL fragment:
  * `#s=1.` followed by the recipe JSON (minus `$schema`), raw-deflated and base64url-encoded.
  * Nothing is uploaded; the fragment never leaves the browser.
+ * `packages/nextjs/utils/studio/studioLink.ts` is the app's copy of this encoder; change both together.
  */
 export function studioLink(recipe) {
   const { $schema, ...shared } = recipe;
