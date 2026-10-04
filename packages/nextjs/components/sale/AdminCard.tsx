@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { zeroHash } from "viem";
+import { formatUnits, zeroHash } from "viem";
 import { useAccount, useBalance } from "wagmi";
 import { useDeployedContractInfo, useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-hbar";
 import { useSale } from "~~/hooks/useSale";
@@ -28,11 +28,12 @@ export const AdminCard = () => {
   const [name, setName] = useState("Lattice Sale Token");
   const [symbol, setSymbol] = useState("LST");
   const [supply, setSupply] = useState("1000000");
-  const [price, setPrice] = useState("0.05");
+  const [typedPrice, setTypedPrice] = useState<string>();
   const [withdrawal, setWithdrawal] = useState("");
 
   if (!isAdmin || sale.isLoading) return null;
 
+  const price = typedPrice ?? (sale.isLaunched ? formatUnits(sale.priceUsd, 18) : "0.05");
   const priceUsd = parsePositive(price, 18);
   const supplyUnits = parsePositive(supply, TOKEN_DECIMALS);
   const withdrawalTinybars = hbarToTinybars(withdrawal);
@@ -70,7 +71,7 @@ export const AdminCard = () => {
           <Field label="Token name" value={name} onChange={setName} />
           <Field label="Symbol" value={symbol} onChange={setSymbol} />
           <Field label="Supply (whole tokens)" value={supply} onChange={setSupply} />
-          <Field label="Price per token (USD)" value={price} onChange={setPrice} />
+          <Field label="Price per token (USD)" value={price} onChange={setTypedPrice} />
           <div className="md:col-span-2">
             <button
               className="btn btn-primary btn-sm"
@@ -88,7 +89,7 @@ export const AdminCard = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
           <div>
-            <Field label="Price per token (USD)" value={price} onChange={setPrice} />
+            <Field label="Price per token (USD)" value={price} onChange={setTypedPrice} />
             <button
               className="btn btn-primary btn-sm mt-3"
               onClick={setSalePrice}
