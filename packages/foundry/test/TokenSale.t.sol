@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
 import { IHRC719 } from "@lattice/interfaces/external/hedera/IHRC719.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
+import { IEmergencyStop } from "@lattice/interfaces/security/IEmergencyStop.sol";
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
@@ -140,6 +141,20 @@ contract TokenSaleTest is SaleTestBase {
         // 300,000 HBAR would buy 1.2M tokens; the treasury holds 1M. HTS answers INSUFFICIENT_TOKEN_BALANCE.
         vm.expectRevert(abi.encodeWithSelector(ITokenSale.TokenSaleTransferFailed.selector, int64(178)));
         sale.buy{ value: 300_000 * ONE_HBAR }(0);
+        vm.stopPrank();
+    }
+
+    function test_buy_revertsWhileTheEmergencyStopIsActive() public {
+        address token = _launch();
+        vm.startPrank(admin);
+        IEmergencyStop(diamond).addGuardian(admin);
+        IEmergencyStop(diamond).emergencyStop("oracle incident");
+        vm.stopPrank();
+
+        vm.startPrank(buyer);
+        IHRC719(token).associate();
+        vm.expectRevert(IEmergencyStop.EmergencyStopActive.selector);
+        sale.buy{ value: ONE_HBAR }(0);
         vm.stopPrank();
     }
 

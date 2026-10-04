@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import { AccessControlLib, DEFAULT_ADMIN_ROLE } from "@lattice/access/libraries/AccessControlLib.sol";
 import { HederaResponseCodes } from "@lattice/interfaces/external/hedera/HederaResponseCodes.sol";
 import { IHederaTokenService } from "@lattice/interfaces/external/hedera/IHederaTokenService.sol";
+import { EmergencyStopLib } from "@lattice/security/libraries/EmergencyStopLib.sol";
 import { HTSAdapterLib, HTS_SYSTEM_CONTRACT } from "@lattice/tokens/hedera/HTSAdapterLib.sol";
 import { InitializableLib } from "@lattice/utils/libraries/InitializableLib.sol";
 import { ITokenSale } from "../interfaces/ITokenSale.sol";
@@ -73,6 +74,7 @@ library TokenSaleLib {
     }
 
     function buy(int64 minTokens) internal returns (int64 tokens) {
+        EmergencyStopLib.checkNotStopped();
         TokenSaleStorage storage $ = tokenSaleStorage();
         uint256 hbarUsd = _hbarUsd($);
         tokens = _tokensFor($, msg.value, hbarUsd);
