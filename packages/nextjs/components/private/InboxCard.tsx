@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Address, createWalletClient, erc20Abi, http, isAddress, isAddressEqual } from "viem";
+import { Address, createWalletClient, erc20Abi, http, isAddress, isAddressEqual, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { useAccount, useBalance, useBlockNumber, usePublicClient, useReadContracts } from "wagmi";
 import type { KeysProps } from "~~/components/private/PrivatePurchases";
@@ -72,7 +72,7 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
         <>
           <ul className="m-0 mt-4 p-0 list-none flex flex-col gap-4">
             {deliveries.map(delivery => (
-              <DeliveryRow key={delivery.stealthAddress} delivery={delivery} keys={keys} />
+              <DeliveryRow key={delivery.stealthAddress} delivery={delivery} keys={keys} diamond={diamond?.address} />
             ))}
           </ul>
           <p className="text-xs text-base-content/60 mt-4 mb-0">
@@ -87,7 +87,15 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
   );
 };
 
-const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: StealthKeys }) => {
+const DeliveryRow = ({
+  delivery,
+  keys,
+  diamond,
+}: {
+  delivery: Announcement;
+  keys: StealthKeys;
+  diamond: Address | undefined;
+}) => {
   const { address } = useAccount();
   const { targetNetwork } = useTargetNetwork();
   const sale = useSale();
@@ -130,7 +138,16 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockNumber]);
 
-  const destination = isAddress(to) ? to : undefined;
+  const toError =
+    to === "" || isAddress(to)
+      ? undefined
+      : isAddress(to, { strict: false })
+        ? "The mixed-case checksum of this address does not match. Check it for a typo."
+        : "Enter an EVM address: 0x followed by 40 hex characters. A 0.0.x account ID does not work here.";
+  // The diamond is the token's treasury, so tokens swept there, to the token or to the zero address reach no wallet.
+  const isLostDestination =
+    isAddress(to) && [zeroAddress, diamond, sale.token].some(lost => lost !== undefined && isAddressEqual(to, lost));
+  const destination = isAddress(to) && !isLostDestination ? to : undefined;
   const { data: fee, isLoading: isFeeLoading } = useQuery({
     queryKey: ["sweepFee", targetNetwork.id, sale.token, delivery.stealthAddress, destination, String(tokenBalance)],
     queryFn: () =>
@@ -163,7 +180,7 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
     !isFeeShort;
 
   const sweep = async () => {
-    if (!sale.token || !isAddress(to) || typeof tokenBalance !== "bigint") return;
+    if (!sale.token || destination === undefined || typeof tokenBalance !== "bigint") return;
     const tokenAddress = sale.token;
     try {
       setIsSweeping(true);
@@ -172,7 +189,7 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
           address: tokenAddress,
           abi: erc20Abi,
           functionName: "transfer",
-          args: [to, tokenBalance],
+          args: [destination, tokenBalance],
         }),
       );
       setTo("");
@@ -208,6 +225,12 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
             Sweep
           </button>
         </div>
+      )}
+      {toError && <p className="text-sm text-warning mt-3 mb-0">{toError}</p>}
+      {isLostDestination && (
+        <p className="text-sm text-warning mt-3 mb-0">
+          Tokens swept to the diamond, the token or the zero address never reach a wallet. Enter a wallet address.
+        </p>
       )}
       {isFeeShort && (
         <p className="text-sm text-warning mt-3 mb-0">
