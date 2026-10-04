@@ -9,9 +9,9 @@ npm create scaffold-hbar@latest -- --template dadadave80/lattice-hedera-template
 One contract address does all of this:
 
 - **Creates an HTS token** through the Hedera Token Service and holds it as treasury.
-- **Sells it for HBAR at a USD price**, converting with the Chainlink HBAR/USD feed on every purchase.
-- **Sells it privately.** A buyer pays for someone else, and the tokens land on a one-time [ERC-5564](https://eips.ethereum.org/EIPS/eip-5564) stealth address that nothing on chain ties to the recipient. Hedera creates that account inside the purchase, so the recipient does nothing first. See [Private purchases](#private-purchases).
+- **Sells it for HBAR at a USD price.** Every purchase reads the Chainlink HBAR/USD feed, so the price holds in dollars while HBAR moves. See [Why Chainlink](#why-chainlink).
 - **Upgrades while it runs.** The contract is an [EIP-2535 diamond](https://eips.ethereum.org/EIPS/eip-2535): you swap the code behind its functions with one transaction, and the address, the token and the balances stay.
+- **Delivers to people who have nothing on Hedera yet.** A buyer pays for someone else, and the tokens land on a one-time [ERC-5564](https://eips.ethereum.org/EIPS/eip-5564) stealth address that nothing on chain ties to the recipient. That address has no account, no token association and no HBAR, and the purchase gives it all three in one transaction: the HBAR sent with it creates the account ([HIP-583](https://hips.hedera.com/hip/hip-583)), the account takes the token without associating first ([HIP-904](https://hips.hedera.com/hip/hip-904)), and what is left of that HBAR pays for moving the tokens on. A gift, a grant or a payroll run reaches people without asking them to set anything up. See [Private purchases](#private-purchases).
 - **Is composed, not hand-wired.** Every Lattice facet in the diamond, `HTSAdapter` and the stealth-address registry and announcer included, is listed in one JSON file. Open that file in Lattice Studio, change it on a canvas, export it back.
 
 ## Live on Hedera testnet
@@ -26,23 +26,13 @@ The app you scaffold talks to this deployment until you deploy your own.
 | A purchase priced by Chainlink | [`0xa3e016063a4eefafb6773540c1f5b6efb898abd3eab72bac92356b6bb9e62cc9`](https://hashscan.io/testnet/transaction/0xa3e016063a4eefafb6773540c1f5b6efb898abd3eab72bac92356b6bb9e62cc9) |
 | The upgrade to `TokenSaleV2` (`diamondCut`) | [`0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f`](https://hashscan.io/testnet/transaction/0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f) |
 
-This diamond has already been through the upgrade described below, so it runs `TokenSaleV2`. It predates private purchases and received them by a second cut, listed with a private purchase and its sweep under [Private purchases on testnet](#private-purchases-on-testnet). Every contract behind it, the diamond, its facets and initializers, and Lattice's factory and registry, is verified on Sourcify with an exact match, so HashScan shows the source of each one.
-
-Lattice Studio deploys to Hedera testnet too. A diamond composed in [Studio's Hedera build](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/), `HTSAdapter` on the sheet, went out through the Foundry script Studio exports, then created an HTS token through its own `HTSAdapter`:
-
-| What | Where |
-| --- | --- |
-| Diamond composed in Studio | [`0xFDd6e099fF4b48a9179443A9D846AfA816997e23`](https://hashscan.io/testnet/contract/0xFDd6e099fF4b48a9179443A9D846AfA816997e23) |
-| Its deploy transaction, through `LatticeFactory` | [`0x53b08097c1a742c49bc59b40311e51cd4910309cba5e361d51ad05be694dcf00`](https://hashscan.io/testnet/transaction/0x53b08097c1a742c49bc59b40311e51cd4910309cba5e361d51ad05be694dcf00) |
-| HTS token it created | [`0x0000000000000000000000000000000000a5B060`](https://hashscan.io/testnet/token/0x0000000000000000000000000000000000a5B060) |
-
-Studio's diamond and the 14 shared contracts it uses are verified on Sourcify with an exact match too. The two diamonds use separate copies of Lattice's facets, at different addresses: this template compiles Lattice with its own settings (`cancun`, 200 optimizer runs) and deploys its own copies, while Studio deploys one shared release per chain from its catalog, compiled with Lattice's settings (`osaka`, 1,000,000 runs).
+This diamond has already been through the upgrade described below, so it runs `TokenSaleV2`. It predates private purchases and received them by a second cut, listed with a private purchase and its sweep under [Private purchases on testnet](#private-purchases-on-testnet). Every contract behind it, the diamond, its facets and initializers, and Lattice's factory and registry, is verified on Sourcify with an exact match, so HashScan shows the source of each one. A diamond composed and deployed from Lattice Studio is listed under [Customize in Lattice Studio](#customize-in-lattice-studio).
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 20.18.3 or newer, [Yarn](https://yarnpkg.com/) and [Git](https://git-scm.com/)
 - [Foundry](https://getfoundry.sh/) (`forge`, `cast`)
-- To deploy: a Hedera testnet account with HBAR. The [Hedera Portal faucet](https://portal.hedera.com/faucet) funds any EVM address.
+- Testnet HBAR. The [Hedera Portal faucet](https://portal.hedera.com/faucet) funds any EVM address: 10 testnet HBAR a day without an account, and 100 with a free Hedera Portal account. Trying the app against the reference diamond fits in 10 HBAR. Deploying your own diamond and launching its sale need about 80 HBAR.
 
 **Deploying needs Foundry 1.7.1 for now.** Foundry 1.8 asks Hedera's JSON-RPC relay a question the relay does not answer yet ([relay issue 5826](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5826)), so `forge script` stops with `-32602 Invalid parameter 1`. Building and testing work on any recent Foundry. To switch:
 
@@ -66,6 +56,16 @@ The app opens on the **Private** page, which buys the sale's token for someone e
 
 The **Diamond** page lists every facet behind the address and the functions each one serves. **Debug Contracts** lets you call any of them.
 
+### Try a private purchase alone
+
+One wallet can play both sides. The payer is public on chain, so this run shows the flow, not the privacy.
+
+1. **Fund the wallet.** On the **Private** page, connect a wallet on Hedera Testnet and fund it from the faucet. The purchase below needs about 5 HBAR in the wallet when it is sent: 2 HBAR of payment, the 1 HBAR stipend, and the network fee's hold of 2,000,000 gas, about 1.7 HBAR, of which about 1.2 HBAR is charged.
+2. **Register.** Under **Receive privately**, click **Sign to derive your keys**, then **Register**. The Inbox uses the same keys.
+3. **Buy for yourself.** Under **Buy for someone privately**, enter your own wallet address as the recipient and 2 HBAR, then click **Buy privately**. The summary shows what it sends and the network fee before you confirm.
+4. **Find the delivery.** The **Inbox** lists it with its token and HBAR balances within a minute. **Refresh** checks sooner.
+5. **Sweep.** Enter an address that already exists on Hedera and that nothing ties to you (a new address funded from the faucet works), then click **Sweep**. A sweep to an address with no account creates it, which costs about 0.67 HBAR of the 1 HBAR stipend. The Inbox checks that cost before it enables **Sweep**.
+
 ## Deploy your own diamond
 
 ```bash
@@ -74,14 +74,14 @@ yarn foundry:account:generate                # creates an encrypted keystore and
 yarn foundry:deploy --network hedera_testnet
 ```
 
-Have about 60 testnet HBAR in the account. A first deployment sends up to 23 transactions. Lattice facets land on deterministic addresses, so a facet that is already on the network is reused and later deployments send fewer. Creating the token in the next step sends 20 HBAR to cover the network's creation fee. Hedera deducts only the fee ([HIP-358](https://hips.hedera.com/hip/hip-358)). The rest stays in the diamond, and the admin can withdraw it.
+Have about 80 testnet HBAR in the account: up to 60 for the deployment and 20 for creating the token. A first deployment sends up to 23 transactions. Lattice facets land on deterministic addresses, so a facet that is already on the network is reused and later deployments send fewer. Creating the token in the next step sends 20 HBAR to cover the network's creation fee. Hedera deducts only the fee ([HIP-358](https://hips.hedera.com/hip/hip-358)). The rest stays in the diamond, and the admin can withdraw it.
 
 The deploy command:
 
 1. reads `packages/foundry/diamond.recipe.json` and deploys each Lattice facet it names, `HTSAdapter`, `ERC6538Registry` and `ERC5564Announcer` among them;
 2. adds this project's `TokenSale` and `StealthBuy`;
 3. creates and initializes the diamond in one transaction, with your account as admin (the recipe's `{"$ref": "deployer"}`);
-4. registers the Chainlink HBAR/USD feed;
+4. registers the Chainlink HBAR/USD feed and makes your account an emergency guardian, which can halt `buy` and `buyFor` with `emergencyStop`;
 5. rewrites `packages/nextjs/contracts/deployedContracts.ts`, so the app now points at your diamond;
 6. verifies every contract it created on Sourcify, so HashScan shows the source. A contract that is already verified is skipped.
 
@@ -247,11 +247,21 @@ followed by four init steps: `ChainlinkAdapterInit` and `HTSAdapterInit`, which 
 [Lattice Studio](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/) is a visual composer for Lattice diamonds. It checks selectors, storage, initializers and upgrade authority as you edit. The build linked here is Studio's Hedera build. It has Hedera Testnet as a deploy target, and its catalog, `dev-6c8db45`, is built from the Lattice commit this template pins, with Lattice's Hedera facets in it: `HTSAdapter`, `HSSAdapter`, `HederaExchangeRateAdapter`, `HederaPrngAdapter` and `HASSignatureVerifier`. The catalog also has Lattice's `ERC6538Registry` and `ERC5564Announcer`. The whole Lattice part of the diamond, `HTSAdapter` and those two included, is composed and checked on Studio's sheet.
 
 1. `yarn diamond:studio` prints a link. Open it: your recipe is on the sheet. Nothing is uploaded; the recipe travels in the link.
-2. Change it. For example, replace `ChainlinkAdapter` with `PythAdapter`.
+2. Change it. For example, replace `ChainlinkAdapter` with `PythAdapter` (the sale then needs a Pyth feed registered and updated; see the oracle note below).
 3. Export `recipe.json` from Studio and save it over `packages/foundry/diamond.recipe.json`.
 4. `yarn foundry:test`, then `yarn foundry:deploy --network hedera_testnet`. The deploy script adds `TokenSale` and `StealthBuy` to what the recipe names.
 
-A diamond without the sale needs no Solidity at all. Choose Hedera Testnet in Studio and deploy it from the app with a wallet, or export Studio's Foundry script and run it, which is how the Studio diamond in the table at the top was deployed. Either way it goes through `LatticeFactory`, Studio's default path; the CreateX path is not available because CreateX is not on Hedera. Lattice's shared contracts a recipe needs and the chain does not have yet go out first, through Arachnid's deterministic deployment proxy, and Studio verifies the diamond it deploys on Sourcify.
+A diamond without the sale needs no Solidity at all. Choose Hedera Testnet in Studio and deploy it from the app with a wallet, or export Studio's Foundry script and run it. Either way it goes through `LatticeFactory`, Studio's default path; the CreateX path is not available because CreateX is not on Hedera. Lattice's shared contracts a recipe needs and the chain does not have yet go out first, through Arachnid's deterministic deployment proxy, and Studio verifies the diamond it deploys on Sourcify.
+
+A diamond composed in [Studio's Hedera build](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/), `HTSAdapter` on the sheet, went out on testnet through the Foundry script Studio exports, then created an HTS token through its own `HTSAdapter`:
+
+| What | Where |
+| --- | --- |
+| Diamond composed in Studio | [`0xFDd6e099fF4b48a9179443A9D846AfA816997e23`](https://hashscan.io/testnet/contract/0xFDd6e099fF4b48a9179443A9D846AfA816997e23) |
+| Its deploy transaction, through `LatticeFactory` | [`0x53b08097c1a742c49bc59b40311e51cd4910309cba5e361d51ad05be694dcf00`](https://hashscan.io/testnet/transaction/0x53b08097c1a742c49bc59b40311e51cd4910309cba5e361d51ad05be694dcf00) |
+| HTS token it created | [`0x0000000000000000000000000000000000a5B060`](https://hashscan.io/testnet/token/0x0000000000000000000000000000000000a5B060) |
+
+Studio's diamond and the 14 shared contracts it uses are verified on Sourcify with an exact match, like the reference diamond. The two diamonds use separate copies of Lattice's facets, at different addresses: this template compiles Lattice with its own settings (`cancun`, 200 optimizer runs) and deploys its own copies, while Studio deploys one shared release per chain from its catalog, compiled with Lattice's settings (`osaka`, 1,000,000 runs).
 
 The live diamond opens in Studio too. The Lattice Studio card on the Diamond page reads the diamond's loupe, names each facet from Studio's catalog by the exact set of selectors it serves, and links to Studio with those facets on the sheet. For each one it shows the catalog's summary, the storage namespace the facet owns, and whether Lattice's shared release of it has code on the network. Facets the catalog does not have, such as `TokenSale`, its upgrades and `StealthBuy`, are listed as this template's own and stay out of the link. The link carries facets, not the diamond's init history: its recipe runs no init, so Studio flags each facet that takes one, even though the live diamond ran its inits when it was created. The card only reads; upgrade the diamond with a cut.
 
