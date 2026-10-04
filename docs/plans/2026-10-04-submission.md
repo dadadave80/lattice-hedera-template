@@ -15,8 +15,9 @@ Bounty: Scaffold-HBAR Template Bounty. Submissions close Sunday 4 October 2026, 
 
 An upgradeable HTS token sale on a Lattice diamond. One contract address creates an HTS token through the
 Hedera Token Service, sells it for HBAR at a USD price read from the Chainlink HBAR/USD feed, and is upgraded
-in place with one `diamondCut` from the app. The diamond's base is a Lattice Studio recipe file, so a
-developer changes it on a canvas instead of in Solidity.
+in place with one `diamondCut` from the app. Every Lattice facet in the diamond, `HTSAdapter` included, is
+listed in a Lattice Studio recipe file, so a developer changes it on a canvas in Studio's Hedera build instead of
+in Solidity.
 
 ## Where the rubric is answered
 
@@ -24,7 +25,7 @@ developer changes it on a canvas instead of in Solidity.
 | --- | --- |
 | Ecosystem integration (35) | HTS through Lattice's `HTSAdapter` and `TokenSale`; Chainlink through `ChainlinkAdapter`; HIP-719 association in the app; HashScan links; the Scaffold-HBAR hooks, Debug Contracts and CLI manifest. |
 | Documentation (30) | `README.md`, `AGENTS.md`, `packages/foundry/README.md`, natspec on every contract, the custom CLI outro. |
-| Code quality (20) | 43 Forge tests, 24 Node tests, 40 Vitest tests, CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
+| Code quality (20) | 44 Forge tests, 24 Node tests, 40 Vitest tests, CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
 | Hedera service depth (15) | Token creation with the diamond as treasury and `delegatableContractId` keys, treasury transfers with response-code handling, association, tinybar and weibar handling, a live upgrade on testnet. |
 
 ## Notes for the developer experience survey
@@ -81,3 +82,11 @@ Seen during the build on 4 October:
   deterministic deployment proxy and the diamond created inside `LatticeFactory`, and HashScan showed "Full
   Match" right away. The deploy now runs the same `forge verify-contract` for every contract it created, so a
   template user ships verified contracts without an extra command.
+
+From giving Lattice Studio a Hedera build:
+
+- Hedera's JSON-RPC relay rejects a transaction asking for more than 15,000,000 gas (`-32005
+  GAS_LIMIT_TOO_HIGH`), while its blocks report a gas limit of 150,000,000. A tool that sizes the gas cap from
+  the latest block has to special-case Hedera.
+- CreateX is not deployed on Hedera; Arachnid's deterministic deployment proxy is. A tool that deploys through
+  CreateX elsewhere needs another path on Hedera; Studio uses `LatticeFactory` there.

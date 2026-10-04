@@ -8,7 +8,7 @@ This is a Scaffold-HBAR dApp built from the Lattice Hedera Template. One [Lattic
 
 1. **Change the diamond's base in `packages/foundry/diamond.recipe.json`, not in Solidity.** `script/DeployDiamond.s.sol` reads that file. Never hand-write `FacetCut` arrays or selector lists for Lattice facets.
 2. **A facet a recipe names must be compiled into the project.** If a build stops with `X is in the recipe but not compiled into this project`, add the import of `X` (and of `XInit`, if it has one) to `packages/foundry/contracts/LatticeFacets.sol`.
-3. **`HTSAdapter` and `TokenSale` are not in the recipe.** `DeployDiamond.s.sol` appends them after the recipe's facets. Lattice Studio's catalog does not carry the Hedera facets yet, and Studio rejects a recipe that names a facet it does not know. Do not add them to the recipe.
+3. **`HTSAdapter` is in the recipe. `TokenSale` is not.** Lattice Studio's catalog `dev-6c8db45` carries Lattice's Hedera facets, so `HTSAdapter` and its `HTSAdapterInit` step sit in the recipe like any other Lattice facet. `TokenSale` is this project's facet: `DeployDiamond.s.sol` appends it after the recipe's facets, and Studio rejects a recipe that names a facet it does not know. Do not add `TokenSale` to the recipe, and do not remove `HTSAdapter` or `HTSAdapterInit` from it: the sale creates its token with the roles `HTSAdapterInit` grants, and the deploy stops without them.
 4. **Facets hold no state.** Logic and storage live in a library with its own ERC-7201 slot (`contracts/libraries/TokenSaleLib.sol`). Append fields to a storage struct. Never reorder or remove fields, and never change a slot constant.
 5. **Every facet lists its selectors in `exportSelectors()`** (ERC-8153): 4 bytes each, never `exportSelectors()` itself. Add a function, add its selector. `test/TokenSale.t.sol` fails when the list and the ABI disagree.
 6. **HBAR has two units.** Contracts see tinybars (8 decimals) in `msg.value` and in every amount they take or return. A transaction's `value` over JSON-RPC is weibars (18 decimals), and the relay converts. In the app, convert only through `packages/nextjs/utils/sale/units.ts`. With `cast send`, `--value 20ether` sends 20 HBAR.
@@ -41,8 +41,8 @@ Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_se
 
 | Path | What it is |
 | --- | --- |
-| `packages/foundry/diamond.recipe.json` | The Lattice base of the diamond, in Lattice Studio's recipe format. |
-| `packages/foundry/script/DeployDiamond.s.sol` | Reads the recipe, appends the Hedera layer, deploys, registers the Chainlink feed, records the deployment. |
+| `packages/foundry/diamond.recipe.json` | Every Lattice facet of the diamond, `HTSAdapter` included, and their init steps, in Lattice Studio's recipe format. |
+| `packages/foundry/script/DeployDiamond.s.sol` | Reads the recipe, appends `TokenSale`, deploys, registers the Chainlink feed, records the deployment. |
 | `packages/foundry/script/Deploy.s.sol` | What `yarn foundry:deploy` runs by default. It is `DeployDiamond`. |
 | `packages/foundry/script/DeployTokenSaleV2.s.sol` | Deploys the upgrade facet on its own. |
 | `packages/foundry/contracts/LatticeFacets.sol` | Imports that compile Lattice facets and inits into this project. |

@@ -1,6 +1,6 @@
 # Lattice Hedera Template
 
-An upgradeable HTS token sale on a [Lattice](https://github.com/dadadave80/lattice) diamond, priced by Chainlink and customizable in [Lattice Studio](https://lattice-studio-topaz.vercel.app/). A template for [Scaffold-HBAR](https://docs.hedera.com/solutions/tools/scaffold-hbar/index).
+An upgradeable HTS token sale on a [Lattice](https://github.com/dadadave80/lattice) diamond, priced by Chainlink and customizable in [Lattice Studio](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/). A template for [Scaffold-HBAR](https://docs.hedera.com/solutions/tools/scaffold-hbar/index).
 
 ```bash
 npm create scaffold-hbar@latest -- --template dadadave80/lattice-hedera-template
@@ -11,7 +11,7 @@ One contract address does all of this:
 - **Creates an HTS token** through the Hedera Token Service and holds it as treasury.
 - **Sells it for HBAR at a USD price**, converting with the Chainlink HBAR/USD feed on every purchase.
 - **Upgrades while it runs.** The contract is an [EIP-2535 diamond](https://eips.ethereum.org/EIPS/eip-2535): you swap the code behind its functions with one transaction, and the address, the token and the balances stay.
-- **Is composed, not hand-wired.** The diamond's base is a list of Lattice facets in one JSON file. Open that file in Lattice Studio, change it on a canvas, export it back.
+- **Is composed, not hand-wired.** Every Lattice facet in the diamond, `HTSAdapter` included, is listed in one JSON file. Open that file in Lattice Studio, change it on a canvas, export it back.
 
 ## Live on Hedera testnet
 
@@ -67,8 +67,8 @@ Have about 60 testnet HBAR in the account. A first deployment sends up to 18 tra
 
 The deploy command:
 
-1. reads `packages/foundry/diamond.recipe.json` and deploys each facet it names;
-2. adds the Hedera layer, `HTSAdapter` and this project's `TokenSale`;
+1. reads `packages/foundry/diamond.recipe.json` and deploys each Lattice facet it names, `HTSAdapter` among them;
+2. adds this project's `TokenSale`;
 3. creates and initializes the diamond in one transaction, with your account as admin;
 4. registers the Chainlink HBAR/USD feed;
 5. rewrites `packages/nextjs/contracts/deployedContracts.ts`, so the app now points at your diamond;
@@ -98,17 +98,19 @@ Verification runs as part of the deploy. If a contract fails to verify, the depl
         ┌──────────────┬────┴─────────┬────────────────┐
         ▼              ▼              ▼                ▼
    TokenSale      HTSAdapter   ChainlinkAdapter   AccessControl, AccessControlDiamondCut,
-   (this repo)    (Lattice)    (Lattice)          EmergencyStop, Receive, DiamondLoupeFacet,
-        │              │              │           ERC165Facet (Lattice)
+   (this repo)    (recipe)     (recipe)           EmergencyStop, Receive, DiamondLoupeFacet,
+        │              │              │           ERC165Facet (recipe)
         │              ▼              ▼
         │       HTS system      Chainlink HBAR/USD
         └─────► contract 0x167  price feed
 ```
 
+A facet marked *recipe* is a Lattice facet named in `packages/foundry/diamond.recipe.json`, the file Lattice Studio composes. `TokenSale` is this project's own facet, and the deploy script adds it.
+
 | File | What it is |
 | --- | --- |
-| `packages/foundry/diamond.recipe.json` | The Lattice base of the diamond, in Lattice Studio's recipe format. |
-| `packages/foundry/script/DeployDiamond.s.sol` | Builds the diamond from the recipe and adds the Hedera layer. |
+| `packages/foundry/diamond.recipe.json` | Every Lattice facet of the diamond, `HTSAdapter` included, and their initializers, in Lattice Studio's recipe format. |
+| `packages/foundry/script/DeployDiamond.s.sol` | Builds the diamond from the recipe and adds `TokenSale`. |
 | `packages/foundry/contracts/LatticeFacets.sol` | The Lattice facets this project compiles. A facet must be imported here before a recipe can name it. |
 | `packages/foundry/contracts/TokenSale.sol` | The sale facet. Stateless: it forwards to `TokenSaleLib`. |
 | `packages/foundry/contracts/libraries/TokenSaleLib.sol` | The sale's logic and its storage, at a fixed [ERC-7201](https://eips.ethereum.org/EIPS/eip-7201) slot. |
@@ -146,25 +148,31 @@ To ship your own change: copy `TokenSaleV2.sol`, change it, list its selectors i
 
 ## Customize in Lattice Studio
 
-The base of the diamond is not written in Solidity. It is this list in `packages/foundry/diamond.recipe.json`:
+The Lattice part of the diamond is not written in Solidity. It is this list in `packages/foundry/diamond.recipe.json`:
 
 ```json
-"facets": ["ChainlinkAdapter", "AccessControlDiamondCut", "EmergencyStop", "AccessControl", "Receive", "DiamondLoupeFacet", "ERC165Facet"]
+"facets": ["ChainlinkAdapter", "HTSAdapter", "AccessControlDiamondCut", "EmergencyStop", "AccessControl", "Receive", "DiamondLoupeFacet", "ERC165Facet"]
 ```
 
-Lattice Studio is a visual composer for Lattice diamonds. It checks selectors, storage, initializers and upgrade authority as you edit.
+followed by two init steps, `ChainlinkAdapterInit` and `HTSAdapterInit`, that make the deploying account admin.
 
-1. `yarn diamond:studio` prints a link. Open it: your base is on the sheet. Nothing is uploaded; the recipe travels in the link.
+[Lattice Studio](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/) is a visual composer for Lattice diamonds. It checks selectors, storage, initializers and upgrade authority as you edit. The build linked here is Studio's Hedera build. It has Hedera Testnet as a deploy target, and its catalog, `dev-6c8db45`, is built from the Lattice commit this template pins, with Lattice's Hedera facets in it: `HTSAdapter`, `HSSAdapter`, `HederaExchangeRateAdapter`, `HederaPrngAdapter` and `HASSignatureVerifier`. The whole Lattice part of the diamond, `HTSAdapter` included, is composed and checked on Studio's sheet.
+
+1. `yarn diamond:studio` prints a link. Open it: your recipe is on the sheet. Nothing is uploaded; the recipe travels in the link.
 2. Change it. For example, replace `ChainlinkAdapter` with `PythAdapter`.
 3. Export `recipe.json` from Studio and save it over `packages/foundry/diamond.recipe.json`.
-4. `yarn foundry:test`, then `yarn foundry:deploy --network hedera_testnet`.
+4. `yarn foundry:test`, then `yarn foundry:deploy --network hedera_testnet`. The deploy script adds `TokenSale` to what the recipe names.
+
+A diamond without the sale needs no Solidity at all: deploy it from Studio straight to Hedera testnet. CreateX is not on Hedera, so Studio deploys through `LatticeFactory`. Before that, it deploys any of Lattice's shared contracts the chain does not have yet, through Arachnid's deterministic deployment proxy. It verifies what it deploys on Sourcify.
 
 What to know:
 
 - **Step 4 deploys a new diamond.** To change a diamond that is already live, cut it (the section above).
-- **The Hedera facets are not on Studio's sheet yet.** `HTSAdapter` and `TokenSale` are added by `DeployDiamond.s.sol` after the recipe. Studio's catalog does not carry them, and it rejects a recipe that names a facet it does not know.
+- **`TokenSale` is not on Studio's sheet.** It is this project's facet, not one of Lattice's, so Studio's catalog does not carry it, and Studio rejects a recipe that names a facet it does not know. `DeployDiamond.s.sol` adds it after the recipe's facets.
+- **Keep `HTSAdapter` and its `HTSAdapterInit` step.** `TokenSale` creates its token through `HTSAdapter`, with the roles `HTSAdapterInit` grants. The deploy script stops before sending anything when either is missing.
+- **Place `HTSAdapter` from the catalog.** Studio's gallery lists an `HTSAdapter` recipe template as arriving in v1.1. The facet itself is in the catalog today, and the link `yarn diamond:studio` prints already has it on the sheet.
 - **An oracle swap leaves `TokenSale` untouched, but not the setup.** The sale reads the price through the diamond's own `latestAnswer(bytes32)`, which `ChainlinkAdapter` and `PythAdapter` both serve. Registering a feed differs: Pyth's `registerFeed` takes a price id and a confidence limit, and a Pyth price must be pushed with `updatePriceFeeds` before it can be read. The deploy script registers the Chainlink feed only; the app does not push Pyth updates.
-- **A facet must be compiled into the project before a recipe can name it.** `ChainlinkAdapter`, `PythAdapter`, `Pausable`, `Multicall` and the base facets are. For another one, add its import to `contracts/LatticeFacets.sol`. If its initializer takes more than an `admin`, add an encoder in `_initStep` in `DeployDiamond.s.sol`.
+- **A facet must be compiled into the project before a recipe can name it.** `ChainlinkAdapter`, `HTSAdapter`, `PythAdapter`, `Pausable`, `Multicall` and the base facets are. For another one, such as `HSSAdapter`, add its import (and its initializer's) to `contracts/LatticeFacets.sol`. If its initializer takes anything other than one `admin`, add an encoder in `_initStep` in `DeployDiamond.s.sol`.
 
 The deploy script stops before sending anything when a recipe cannot be built, and says what to change:
 
@@ -172,6 +180,7 @@ The deploy script stops before sending anything when a recipe cannot be built, a
 | --- | --- |
 | `X is in the recipe but not compiled into this project` | Import `X` in `contracts/LatticeFacets.sol`. |
 | `X is not in FacetInventory` | `X` is not a Lattice facet. Remove it from the recipe. |
+| `TokenSale creates its token through HTSAdapter` | Add `HTSAdapter` and its `HTSAdapterInit` step in Studio. |
 | `selector 0x… is exported by both A and B` | Give the selector one owner in Studio, or exclude it. |
 | `XInit takes arguments this template cannot encode yet` | Add an encoder in `_initStep`. |
 | `init.kind must be 'steps' or 'none'` | Bundle initializers are not supported. Use steps. |
@@ -218,14 +227,15 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 
 - Not audited. Lattice is pre-1.0 and unaudited too. Do not put real value behind this without a review.
 - There is no local-chain mode. HTS and the Chainlink feed exist only on Hedera, so contract tests run against mocks and the app runs against testnet.
-- A recipe can name another admin, but the deploy script also makes the deploying account admin and gives it `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE`. It needs admin to register the feed and the manager role to let the sale create the token. To hand over control, grant `DEFAULT_ADMIN_ROLE`, `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE` to the new admin, then have the deployer renounce all three after the deploy.
+- Keep the recipe's `admin` arguments on the deploying account (`{"$ref": "deployer"}`). The deploy script registers the Chainlink feed from that account, which needs `DEFAULT_ADMIN_ROLE`, and `launchSale` needs its caller to hold `DEFAULT_ADMIN_ROLE` and the `HTS_MANAGER_ROLE` that `HTSAdapterInit` grants. To hand over control, grant `DEFAULT_ADMIN_ROLE`, `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE` to the new admin, then have the deployer renounce all three after the deploy.
+- Lattice Studio's Hedera support is a preview build of its `feat/hedera` branch, and its catalog is provisional: built from Lattice commit `6c8db45`, not from a tagged release. `TokenSale` is never on its sheet (see "Customize in Lattice Studio").
 - The app's upgrade card plans Add and Replace only. A function the outgoing facet serves that the new facet does not export stays routed to the old facet, and the preview lists it under "Still served by the outgoing facet". Removing them is a separate Remove cut, for example from Debug Contracts or with `cast`.
 - The package manager is Yarn.
 
 ## Links
 
 - [Lattice](https://github.com/dadadave80/lattice), the diamond module library, and its [Hedera guide](https://github.com/dadadave80/lattice/blob/feat/hedera-system-contract-modules/docs/guides/hedera.md)
-- [Lattice Studio](https://github.com/dadadave80/lattice-studio)
+- [Lattice Studio](https://github.com/dadadave80/lattice-studio), and [its Hedera build](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/)
 - [Scaffold-HBAR docs](https://docs.hedera.com/solutions/tools/scaffold-hbar/index) and [create-scaffold-hbar](https://github.com/hedera-dev/create-scaffold-hbar)
 - [Chainlink price feeds on Hedera](https://docs.chain.link/data-feeds/price-feeds/addresses?network=hedera)
 - [HashScan](https://hashscan.io/testnet)
