@@ -43,6 +43,7 @@ contract DeployDiamond is BaseDeploy {
         names = new string[](base.length + HEDERA_FACETS);
         cuts = new FacetCut[](base.length + HEDERA_FACETS);
         for (uint256 i; i < base.length; ++i) {
+            _requireWired(base[i]);
             names[i] = base[i];
             cuts[i] = _cut(_facet(base[i]));
         }
@@ -68,7 +69,11 @@ contract DeployDiamond is BaseDeploy {
     // ── recipe reading ──────────────────────────────────────────────────────────────────────────────
 
     function _facetNames(string memory json) internal pure returns (string[] memory) {
-        return vm.parseJsonStringArray(json, ".facets");
+        try vm.parseJsonStringArray(json, ".facets") returns (string[] memory names) {
+            return names;
+        } catch {
+            revert("Recipe: diamond.recipe.json must be valid JSON with a 'facets' list of facet names");
+        }
     }
 
     function _stepCount(string memory json) internal view returns (uint256 n) {
@@ -85,5 +90,17 @@ contract DeployDiamond is BaseDeploy {
         string memory spec = vm.parseJsonString(json, string.concat(".init.steps[", vm.toString(i), "].spec"));
         init = deployCode(string.concat(spec, ".sol:", spec));
         data = abi.encodeWithSignature("init(address)", admin);
+    }
+
+    /// @dev A facet can only be deployed by name if `contracts/LatticeFacets.sol` compiled it into this project.
+    function _requireWired(string memory name) internal view {
+        require(
+            vm.exists(string.concat("out/", name, ".sol/", name, ".json")),
+            string.concat(
+                "Recipe: ",
+                name,
+                " is in the recipe but not compiled into this project; add its import to contracts/LatticeFacets.sol"
+            )
+        );
     }
 }

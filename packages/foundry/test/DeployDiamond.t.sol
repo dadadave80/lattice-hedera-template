@@ -64,6 +64,30 @@ contract DeployDiamondTest is Test {
         assertEq(feedKey, bytes32("HBAR/USD"), "TokenSaleInit ran");
     }
 
+    function test_build_revertsWhenAFacetIsNotCompiledIn() public {
+        string memory json = vm.replace(recipe, '"ERC165Facet"', '"ERC165Facet", "RateLimiter"');
+
+        vm.expectRevert(
+            bytes(
+                "Recipe: RateLimiter is in the recipe but not compiled into this project; add its import to contracts/LatticeFacets.sol"
+            )
+        );
+        deployer.build(json, admin);
+    }
+
+    function test_build_revertsWhenAFacetIsNotALatticeFacet() public {
+        // TokenSale is compiled into the project, but it is this project's facet, not one of Lattice's.
+        string memory json = vm.replace(recipe, '"ERC165Facet"', '"ERC165Facet", "TokenSale"');
+
+        vm.expectRevert(bytes("BaseDeploy: TokenSale is not in FacetInventory"));
+        deployer.build(json, admin);
+    }
+
+    function test_build_revertsOnAFileThatIsNotARecipe() public {
+        vm.expectRevert(bytes("Recipe: diamond.recipe.json must be valid JSON with a 'facets' list of facet names"));
+        deployer.build("{}", admin);
+    }
+
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.
     function _diamond(string memory json)
         internal
