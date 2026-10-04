@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from "fs";
 import { parse } from "toml";
 import { fileURLToPath } from "url";
 import { selectOrCreateKeystore } from "./selectOrCreateKeystore.js";
+import { relayWarning } from "./forgeVersion.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 config();
@@ -25,10 +26,9 @@ Options:
   --keystore <name>     Specify the keystore account to use (bypasses selection prompt)
   --help, -h           Show this help message
 Examples:
-  yarn deploy --file DeployHederaToken.s.sol --network hedera_testnet
+  yarn deploy --network hedera_testnet
   yarn deploy --network hedera_testnet --keystore my-account
-  yarn deploy --file DeployHederaToken.s.sol
-  yarn deploy
+  yarn deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet
   `);
   process.exit(0);
 }
@@ -147,6 +147,10 @@ The default account (scaffold-hbar-default) can only be used for localhost deplo
 `);
   process.exit(0);
 }
+
+const forgeVersion = spawnSync("forge", ["--version"], { encoding: "utf8" });
+const warning = relayWarning(forgeVersion.stdout ?? "", network);
+if (warning) console.log(`\n${warning}\n`);
 
 // Set environment variables for the make command
 process.env.DEPLOY_SCRIPT = `script/${fileName}`;
