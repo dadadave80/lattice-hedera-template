@@ -1,138 +1,120 @@
 # Agent instructions
 
-Briefing for coding agents in this app (Cursor, Claude Code, Codex). Claude Code loads it through `CLAUDE.md`.
+Briefing for coding agents in this project (Claude Code, Cursor, Codex). Claude Code loads it through `CLAUDE.md`.
 
-This is a Scaffold-HBAR dApp: Next.js App Router, wallet connect, Debug Contracts, and Hedera networks (testnet, mainnet, local fork). The CLI may have left only Hardhat or only Foundry.
+This is a Scaffold-HBAR dApp built from the Lattice Hedera Template. One [Lattice](https://github.com/dadadave80/lattice) diamond (EIP-2535) on Hedera creates an HTS token, sells it for HBAR at a USD price read from Chainlink, and is upgraded with `diamondCut`. Contracts are Foundry, the app is Next.js App Router, the package manager is Yarn.
 
-Use the package manager this project was created with (`packageManager` in the root `package.json`, or the lockfile). Examples use `yarn`; if the app was created with npm, swap `yarn <script>` for `npm run <script>`.
+## Rules that are easy to get wrong
 
-## Which Solidity package
-
-- `packages/hardhat` exists → Hardhat (`hardhat-deploy`)
-- `packages/foundry` exists → Foundry (Forge scripts)
-- `packages/nextjs` is always the frontend (App Router, RainbowKit, Wagmi, Viem, DaisyUI)
-
-Follow only the flavor that is present.
+1. **Change the diamond's base in `packages/foundry/diamond.recipe.json`, not in Solidity.** `script/DeployDiamond.s.sol` reads that file. Never hand-write `FacetCut` arrays or selector lists for Lattice facets.
+2. **A facet a recipe names must be compiled into the project.** If a build stops with `X is in the recipe but not compiled into this project`, add the import of `X` (and of `XInit`, if it has one) to `packages/foundry/contracts/LatticeFacets.sol`.
+3. **`HTSAdapter` and `TokenSale` are not in the recipe.** `DeployDiamond.s.sol` appends them after the recipe's facets. Lattice Studio's catalog does not carry the Hedera facets yet, and Studio rejects a recipe that names a facet it does not know. Do not add them to the recipe.
+4. **Facets hold no state.** Logic and storage live in a library with its own ERC-7201 slot (`contracts/libraries/TokenSaleLib.sol`). Append fields to a storage struct. Never reorder or remove fields, and never change a slot constant.
+5. **Every facet lists its selectors in `exportSelectors()`** (ERC-8153): 4 bytes each, never `exportSelectors()` itself. Add a function, add its selector. `test/TokenSale.t.sol` fails when the list and the ABI disagree.
+6. **HBAR has two units.** Contracts see tinybars (8 decimals) in `msg.value` and in every amount they take or return. A transaction's `value` over JSON-RPC is weibars (18 decimals), and the relay converts. In the app, convert only through `packages/nextjs/utils/sale/units.ts`. With `cast send`, `--value 20ether` sends 20 HBAR.
+7. **HTS answers with response codes. It does not revert.** `22` is success. Check the code after every call to `0x167` and revert with a named error, as `TokenSaleLib._transferFromTreasury` does.
+8. **There is no local chain.** HTS and the Chainlink feed exist only on Hedera. Contract tests run against Lattice's `MockHederaTokenService` and `test/mocks/MockAggregatorV3.sol`. The app runs against Hedera testnet. `forge script` cannot simulate an HTS call, so the token is created by a separate transaction (`launchSale`) after the deploy.
+9. **Deploy with Foundry 1.7.1.** Foundry 1.8 fails against Hedera's relay with `-32602 Invalid parameter 1`. Building and testing work on any recent Foundry.
+10. **The frontend knows one contract, `Diamond`.** Its ABI is the union of what the facets serve. `scripts-js/generateTsAbis.js` writes it to `packages/nextjs/contracts/deployedContracts.ts` on every deploy. Never edit that file by hand.
 
 ## Commands
 
-Package-prefixed scripts for package-specific work. Keep only truly cross-workspace commands unprefixed.
-
 ```bash
-# Local chain + deploy + frontend (separate terminals)
-yarn hardhat:chain    # Hedera-forked Hardhat node on 8545
-yarn hardhat:deploy --network localhost
-yarn foundry:chain    # Anvil from the Foundry package
-yarn foundry:deploy
-yarn next:start       # http://localhost:3000
-
-# Frontend only
-yarn next:dev
-
-# Quality / build
-yarn lint
-yarn format
+yarn foundry:test      # Forge tests (mock HTS, mock feed) and the Node tests for scripts-js. No chain needed.
+yarn next:test         # Vitest unit tests for packages/nextjs/utils
+yarn next:dev          # the app on http://localhost:3000, against Hedera testnet
+yarn lint              # next lint, forge fmt --check, prettier --check on scripts-js
+yarn format            # fix what yarn lint reports
+yarn next:check-types
 yarn next:build
-yarn hardhat:compile
-yarn foundry:compile
 
-# Live networks
-yarn hardhat:deploy --network hederaTestnet   # or hederaMainnet
-yarn foundry:deploy --network hedera_testnet  # or hedera_mainnet
-yarn hardhat:verify -- HederaToken testnet [0xAddress]
-yarn foundry:verify:testnet
-
-# Deployer account
-yarn hardhat:account:generate
-yarn hardhat:account:import
-yarn hardhat:account
+yarn foundry:account:generate                                                  # create a deployer keystore
+yarn foundry:deploy --network hedera_testnet                                   # deploy the diamond from the recipe
+yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet    # deploy the upgrade facet
+yarn diamond:studio                                                            # print the Lattice Studio link for the recipe
 ```
 
-`yarn hardhat:deploy` without `--network localhost` targets the in-process `hardhat` network, not the long-running fork.
+Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_sendsTokensToTheBuyerAndKeepsTheHbar -vvv`.
 
 ## Layout
 
-### Hardhat
+| Path | What it is |
+| --- | --- |
+| `packages/foundry/diamond.recipe.json` | The Lattice base of the diamond, in Lattice Studio's recipe format. |
+| `packages/foundry/script/DeployDiamond.s.sol` | Reads the recipe, appends the Hedera layer, deploys, registers the Chainlink feed, records the deployment. |
+| `packages/foundry/script/Deploy.s.sol` | What `yarn foundry:deploy` runs by default. It is `DeployDiamond`. |
+| `packages/foundry/script/DeployTokenSaleV2.s.sol` | Deploys the upgrade facet on its own. |
+| `packages/foundry/contracts/LatticeFacets.sol` | Imports that compile Lattice facets and inits into this project. |
+| `packages/foundry/contracts/interfaces/ITokenSale.sol` | The sale's functions, events and errors. |
+| `packages/foundry/contracts/libraries/TokenSaleLib.sol` | The sale's logic and storage. |
+| `packages/foundry/contracts/TokenSale.sol`, `TokenSaleV2.sol` | The sale facet and its upgrade. |
+| `packages/foundry/contracts/TokenSaleInit.sol` | The sale's initializer, run once while the diamond is created. |
+| `packages/foundry/test/SaleTestBase.sol` | Test base: builds the diamond through the deploy script, with HTS and the feed mocked. |
+| `packages/foundry/test/fixtures/` | Recipes frozen for tests. Tests do not depend on the project's own recipe, except one. |
+| `packages/foundry/scripts-js/diamondAbi.js` | Merges facet ABIs into the `Diamond` ABI. |
+| `packages/foundry/lib/lattice` | Lattice, pinned by tag in `foundry.lock`. Do not edit. |
+| `packages/nextjs/app/page.tsx` | Sale page: `components/sale/SaleCard.tsx` and `AdminCard.tsx`. |
+| `packages/nextjs/app/diamond/page.tsx` | Diamond page: `components/diamond/FacetTable.tsx` and `UpgradeCard.tsx`. |
+| `packages/nextjs/utils/sale/units.ts` | Tinybar and weibar conversion. |
+| `packages/nextjs/utils/diamond/planCut.ts` | Turns a facet's exported selectors into Add and Replace cuts. |
 
-- Contracts: `packages/hardhat/contracts/`
-- Deploy scripts: `packages/hardhat/deploy/`
-- Tests: `packages/hardhat/test/`
-- Config: `packages/hardhat/hardhat.config.ts`
-- Tagged deploy: if `deployHederaToken.tags = ["HederaToken"]`, run `yarn hardhat:deploy --tags HederaToken`
+## How to change things
 
-### Foundry
-
-- Contracts: `packages/foundry/contracts/`
-- Deploy scripts: `packages/foundry/script/` (`Deploy.s.sol`, `DeployHederaToken.s.sol`, `DeployHtsTokenCreator.s.sol`)
-- Tests: `packages/foundry/test/`
-- Config: `packages/foundry/foundry.toml`
-- One contract: `yarn foundry:deploy --file DeployHederaToken.s.sol`
-
-### After deploy
-
-ABIs and addresses are written to `packages/nextjs/contracts/deployedContracts.ts`. Put third-party contracts in `packages/nextjs/contracts/externalContracts.ts`.
-
-Sample contracts on this starter: `HederaToken` (ERC-20) and `HtsTokenCreator` (HTS precompile at `0x167`).
+| Goal | Do this |
+| --- | --- |
+| Swap or add a Lattice facet in a new deployment | Edit `diamond.recipe.json` (or export over it from Lattice Studio), run `yarn foundry:test`, deploy. |
+| Use a Lattice facet that is not compiled in | Add its import to `contracts/LatticeFacets.sol`. If its init takes more than `admin`, add an encoder in `_initStep` in `DeployDiamond.s.sol`. |
+| Change the sale's behaviour on a live diamond | Write a new facet (copy `TokenSaleV2.sol`), deploy it with its own script, cut it in from the Diamond page. |
+| Add your own facet to new deployments | Interface, library with its own slot, facet with `exportSelectors()`. Add it next to `TokenSale` in `build()` in `DeployDiamond.s.sol` and raise `HEDERA_FACETS`. |
+| Add sale storage | Append a field to `TokenSaleStorage`. |
+| Change the oracle | Put `PythAdapter` in the recipe instead of `ChainlinkAdapter`. `TokenSale` does not change: it reads `latestAnswer(bytes32)` on the diamond. Registering and updating a Pyth feed is yours to add. |
 
 ## Frontend contract interaction
 
-Hooks live in `packages/nextjs/hooks/scaffold-hbar`. Use the names that exist in the codebase:
-
-- `useScaffoldReadContract` — not `useScaffoldContractRead`
-- `useScaffoldWriteContract` — not `useScaffoldContractWrite`
-
-Also: `useScaffoldWatchContractEvent`, `useScaffoldEventHistory`, `useDeployedContractInfo`, `useScaffoldContract`, `useTransactor`.
+Use the Scaffold-HBAR hooks in `packages/nextjs/hooks/scaffold-hbar` with `contractName: "Diamond"`. Every function of every facet is on that one contract.
 
 ```typescript
-const { data: balance } = useScaffoldReadContract({
-  contractName: "HederaToken",
-  functionName: "balanceOf",
-  args: [connectedAddress],
+const { data: saleInfo } = useScaffoldReadContract({
+  contractName: "Diamond",
+  functionName: "saleInfo",
 });
 
-const { writeContractAsync, isPending } = useScaffoldWriteContract({
-  contractName: "HederaToken",
-});
+const { writeContractAsync } = useScaffoldWriteContract({ contractName: "Diamond" });
 
 await writeContractAsync({
-  functionName: "mint",
-  args: [connectedAddress, parseEther("1")],
+  functionName: "buy",
+  args: [minTokensOut(quote, 100n)],
+  value: tinybarsToWeibars(tinybars), // the contract receives tinybars
 });
 ```
 
-`HederaToken.mint` is `onlyOwner`. For HTS creation, `HtsTokenCreator.createToken` is payable (HTS fee via `msg.value`) and emits `TokenCreated`.
+The hook names are `useScaffoldReadContract` and `useScaffoldWriteContract`, not `useScaffoldContractRead` or `useScaffoldContractWrite`. Also available: `useScaffoldWatchContractEvent`, `useScaffoldEventHistory`, `useDeployedContractInfo`, `useScaffoldContract`, `useTransactor`.
 
-### UI
+An HTS token answers ERC-20 reads (`name`, `symbol`, `balanceOf`) and the HIP-719 calls `associate()` and `isAssociated()` at its own address. Call those with wagmi's `useReadContract` and `useWriteContract`, as `SaleCard.tsx` does. An account must associate with the token before it can receive it.
 
-Use `@scaffold-hbar-ui/components` for web3 UI: `Address`, `AddressInput`, `Balance`, `EtherInput`, `IntegerInput`.
+A function added by a cut (for example `bonusBps()` after the upgrade to `TokenSaleV2`) is not in the generated `Diamond` ABI until the next full deploy. Read it with an inline ABI, as `SaleCard.tsx` does.
 
-Use DaisyUI classes, not raw Tailwind when a DaisyUI component exists:
+UI: `HederaAddress` from `~~/components/scaffold-hbar` shows an address with its HashScan link. `HbarInput` and `HederaPortalFaucet` come from `@scaffold-hbar-ui/components`. Use DaisyUI classes (`btn btn-primary`, `badge`, `table`) before raw Tailwind.
 
-```tsx
-<button className="btn btn-primary">Connect</button>
-```
+## Tests
 
-### Networks
+- Contract tests extend `SaleTestBase` and call everything through the diamond, the way a wallet does.
+- Test behaviour, including the revert a caller would see. Lattice errors come from `@lattice/interfaces/...`, the sale's from `ITokenSale`.
+- Script helpers in `scripts-js` are tested with the Node test runner: put a `*.test.js` beside the file and `yarn foundry:test` runs it.
+- Frontend logic that can be wrong (units, cut planning) lives in `packages/nextjs/utils` with a `*.test.ts` beside it.
 
-- Hardhat: `packages/hardhat/hardhat.config.ts` (`hederaTestnet` 296, `hederaMainnet` 295)
-- Foundry: `packages/foundry/foundry.toml` (`hedera_testnet`, `hedera_mainnet`)
-- Next.js: `packages/nextjs/scaffold.config.ts` (target networks, polling, RPC overrides, WalletConnect)
+## Networks
+
+- Foundry: `packages/foundry/foundry.toml` (`hedera_testnet` 296, `hedera_mainnet` 295).
+- Next.js: `packages/nextjs/scaffold.config.ts`.
+- Chainlink HBAR/USD feed addresses are constants in `DeployDiamond.s.sol`.
 
 ## Style
 
 | Style | Use |
 | --- | --- |
-| `UpperCamelCase` | types, components |
+| `UpperCamelCase` | types, components, contracts |
 | `lowerCamelCase` | variables, functions |
 | `CONSTANT_CASE` | constants |
-| `snake_case` | Hardhat deploy files and Foundry scripts |
 
-Next.js imports use the `~~` alias:
-
-```tsx
-import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-```
-
-App Router pages live under `packages/nextjs/app/`. Add `"use client"` when the page uses hooks.
-
-Prefer `type` over `interface`. No `T` prefix on types. Let TypeScript infer when it can. Comments should add information.
+Solidity is formatted by `forge fmt` (120 columns, double quotes, spaces inside braces). Scripts in `scripts-js` use Prettier 2 defaults; keep that folder flat. Next.js imports use the `~~` alias. Add `"use client"` to a component that uses hooks. Prefer `type` over `interface`. Comments say what the code cannot.

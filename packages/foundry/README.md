@@ -1,82 +1,64 @@
-# Foundry package (Hedera)
+# Foundry package
 
-Solidity contracts, Forge scripts, and tests for the Hedera EVM.
+The contracts, deploy scripts and tests behind the diamond. The [root README](../../README.md) is the guide; this page is the reference for working inside `packages/foundry`.
 
-## Setup
+## Dependencies
 
-Forge dependencies are tracked as git submodules under `packages/foundry/lib`.
-Initialize them from the repo root:
+Forge libraries are git submodules under `lib/`, pinned by tag in `foundry.lock`:
+
+| Library | Why |
+| --- | --- |
+| `lib/lattice` | The diamond, its facets, the deploy base (`BaseDeploy`) and the HTS mock used in tests. |
+| `lib/forge-std` | Forge's test and script library. |
+
+`create-scaffold-hbar` installs them when it scaffolds the project. In a plain clone, run `git submodule update --init --recursive` from the repository root.
+
+## Tests
 
 ```bash
-git submodule update --init --recursive
+yarn test            # forge test, then the Node tests for scripts-js
+forge test -vvv --match-contract TokenSaleTest
+yarn test:scripts    # only the Node tests
 ```
 
----
+Tests need no chain. `test/SaleTestBase.sol` builds the diamond through the deploy script, puts Lattice's `MockHederaTokenService` at the HTS address `0x167`, and registers `test/mocks/MockAggregatorV3.sol` as the HBAR/USD feed.
 
-## Deploy (Foundry)
+| File | Covers |
+| --- | --- |
+| `test/TokenSale.t.sol` | Launching the sale, quoting, buying, association, slippage, HTS response codes, admin functions, the storage slot, `exportSelectors()`. |
+| `test/TokenSaleUpgrade.t.sol` | Cutting `TokenSaleV2` into a diamond that is already selling. |
+| `test/DeployDiamond.t.sol` | Reading recipes: the default, an oracle swap, `owners`, `exclude`, and every message a bad recipe produces. |
+| `scripts-js/*.test.js` | The merged `Diamond` ABI, the Lattice Studio link, the Foundry version warning. |
 
-From the repo root, contract deploys for this package use **`yarn foundry:deploy`** (runs `packages/foundry`’s deploy script). Inside `packages/foundry`, use **`yarn deploy`** (same entrypoint).
+`yarn test:testnet` and `yarn test:mainnet` fork a live network. The suite does not need them.
 
-- **Local (recommended):** Start the shared local chain from the repo root, then deploy with `--network localhost` (RPC `http://127.0.0.1:8545`).
+## Deploy
 
-  ```bash
-  yarn hardhat:chain
-  ```
+```bash
+yarn deploy --network hedera_testnet                                   # the diamond, from diamond.recipe.json
+yarn deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet    # the upgrade facet
+```
 
-  In another terminal (from repo root or this package):
+From the repository root the same commands are `yarn foundry:deploy ...`.
 
-  ```bash
-  yarn foundry:deploy --network localhost
-  ```
+- Use Foundry 1.7.1 (`foundryup --install v1.7.1`). Foundry 1.8 cannot run `forge script` against Hedera's relay yet.
+- The deployer must be an account that exists on Hedera: generate a keystore with `yarn account:generate` and fund its address from the [faucet](https://portal.hedera.com/faucet).
+- The Makefile passes `--slow --legacy`: one transaction at a time, with legacy gas pricing, which is what the relay expects.
+- Facets are deployed through the deterministic deployment proxy, so a facet that is already on the network at its address is reused instead of deployed again.
 
-  This uses the default keystore `scaffold-hbar-default` where applicable (see `Makefile` / `parseArgs.js`).
-  The deploy flow auto-creates the local `deployments/` directory before writing `deployments/<chainId>.json`.
+A deploy writes three things:
 
-- **Plain Anvil (no Hedera fork):** `yarn chain` inside `packages/foundry` runs plain `anvil`—useful for quick iteration, not for full Hedera/HTS parity.
+| File | Content |
+| --- | --- |
+| `broadcast/` | Forge's record of the transactions. Not committed. |
+| `deployments/diamond/<chainId>.json` | The diamond's address, its facets, and the selectors cut for each. Not committed. |
+| `../nextjs/contracts/deployedContracts.ts` | What the app reads: one `Diamond` contract with the merged ABI. Committed. |
 
-- **Hedera testnet/mainnet:** Use `yarn foundry:deploy --network hedera_testnet` (or `hedera_mainnet`). You **must** use a keystore whose address is a **Hedera-created account** (created and funded via [Hedera Portal](https://portal.hedera.com) or faucet). If you see `Requested resource not found. address '0x...'`, that address does not exist on Hedera. From the repo root, create or import one with `yarn foundry:account:generate` or `yarn foundry:account:import`, then deploy with `--keystore <name>`. For multi-contract deploys, the Makefile uses `--slow` so each transaction is confirmed before the next (avoids `WRONG_NONCE` on Hedera when both txs are in flight).
+## Environment
 
----
+`.env` is created from `.env.example` on install and is never committed.
 
-## Tests (Foundry)
-
-- **`yarn test`** inside `packages/foundry` (or `forge test`) – Runs tests on a **local Anvil** chain (no Hedera fork).  
-  - **HederaToken** (ERC-20) tests pass.  
-  - **HtsTokenCreator** (HTS precompile) tests are **skipped** – these need a Hedera fork or live RPC.
-
-- **`yarn test:local`** inside `packages/foundry` (or `forge test --fork-url http://127.0.0.1:8545 --chain-id 296 --ffi`) – Runs tests against whatever serves **JSON-RPC on 127.0.0.1:8545** with **chain id 296**.
-
-  **Local setup:**
-
-  ```bash
-  yarn hardhat:chain
-  ```
-
-  Then in another terminal from the repo root:
-
-  ```bash
-  yarn foundry:test:local
-  ```
-
-  Or from this package: `yarn test:local`.
-
-  This command attaches to the shared local JSON-RPC at `:8545`.
-
-- **`yarn test:testnet`** inside `packages/foundry` – Fork from Hedera testnet RPC (`HEDERA_RPC_URL` or default) with [hedera-forking](https://github.com/hashgraph/hedera-forking) HTS emulation via `htsSetup()` where applicable.
-
-- **`yarn test:mainnet`** inside `packages/foundry` – Fork from Hedera mainnet RPC (read-only / snapshot style checks).
-
----
-
-## Summary
-
-| Command             | Chain        | HederaToken | HtsTokenCreator |
-| ------------------- | ------------ | ----------- | --------------- |
-| `yarn test`         | Anvil        | ✅          | ⏭️ (skipped)    |
-| `yarn test:local`   | Local fork\* | ✅          | ✅              |
-| `yarn test:testnet` | Testnet RPC  | ✅          | ✅              |
-| `yarn test:mainnet` | Mainnet RPC  | ✅          | ✅ (read-only)  |
-
-\* Run `yarn hardhat:chain` from the repo root first.
-
-For more on fork testing with HTS emulation, see [forking the Hedera network for local testing](https://docs.hedera.com/hedera/core-concepts/smart-contracts/forking-hedera-network-for-local-testing).
+| Variable | Use |
+| --- | --- |
+| `HBAR_USD_MAX_STALENESS` | Seconds the diamond accepts between Chainlink updates. Read at deploy time. Defaults to 365 days on testnet and 25 hours on mainnet. |
+| `LOCALHOST_KEYSTORE_ACCOUNT`, `HEDERA_RPC_URL`, `ALCHEMY_API_KEY` | Scaffold-HBAR defaults. This template does not need them changed. |
