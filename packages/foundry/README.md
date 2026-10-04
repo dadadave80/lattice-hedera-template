@@ -27,7 +27,7 @@ Tests need no chain. `test/SaleTestBase.sol` builds the diamond through the depl
 | --- | --- |
 | `test/TokenSale.t.sol` | Launching the sale, quoting, buying, association, slippage, HTS response codes, admin functions, the storage slot, `exportSelectors()`. |
 | `test/TokenSaleUpgrade.t.sol` | Cutting `TokenSaleV2` into a diamond that is already selling. |
-| `test/DeployDiamond.t.sol` | Reading recipes: the default, an oracle swap, `owners`, `exclude`, the stop when `HTSAdapter` or its init step is missing, and every message a bad recipe produces. |
+| `test/DeployDiamond.t.sol` | Reading recipes: the default, an oracle swap, `owners`, `exclude`, the stop when `HTSAdapter` or its init step is missing, feed registration when the recipe names another admin, and every message a bad recipe produces. |
 | `scripts-js/*.test.js` | The merged `Diamond` ABI, the Lattice Studio link, the Foundry version warning, the Sourcify verification helpers. |
 
 `yarn test:testnet` and `yarn test:mainnet` fork a live network. The suite does not need them.

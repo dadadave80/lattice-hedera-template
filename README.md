@@ -69,7 +69,7 @@ The deploy command:
 
 1. reads `packages/foundry/diamond.recipe.json` and deploys each Lattice facet it names, `HTSAdapter` among them;
 2. adds this project's `TokenSale`;
-3. creates and initializes the diamond in one transaction, with your account as admin;
+3. creates and initializes the diamond in one transaction, with your account as admin (the recipe's `{"$ref": "deployer"}`);
 4. registers the Chainlink HBAR/USD feed;
 5. rewrites `packages/nextjs/contracts/deployedContracts.ts`, so the app now points at your diamond;
 6. verifies every contract it created on Sourcify, so HashScan shows the source. A contract that is already verified is skipped.
@@ -227,7 +227,7 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 
 - Not audited. Lattice is pre-1.0 and unaudited too. Do not put real value behind this without a review.
 - There is no local-chain mode. HTS and the Chainlink feed exist only on Hedera, so contract tests run against mocks and the app runs against testnet.
-- Keep the recipe's `admin` arguments on the deploying account (`{"$ref": "deployer"}`). The deploy script registers the Chainlink feed from that account, which needs `DEFAULT_ADMIN_ROLE`, and `launchSale` needs its caller to hold `DEFAULT_ADMIN_ROLE` and the `HTS_MANAGER_ROLE` that `HTSAdapterInit` grants. To hand over control, grant `DEFAULT_ADMIN_ROLE`, `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE` to the new admin, then have the deployer renounce all three after the deploy.
+- The deploy script finishes the setup only when the deploying account is the diamond's admin. A recipe can name another admin, such as a Safe, in place of `{"$ref": "deployer"}`. The diamond still deploys, but registering the Chainlink feed needs `DEFAULT_ADMIN_ROLE`, so the script skips it and prints the `registerFeed` call for that admin to send. `launchSale` must come from that admin too: it needs `DEFAULT_ADMIN_ROLE` and the `HTS_MANAGER_ROLE` that `HTSAdapterInit` grants.
 - Lattice Studio's Hedera support is a preview build of its `feat/hedera` branch, and its catalog is provisional: built from Lattice commit `6c8db45`, not from a tagged release. `TokenSale` is never on its sheet (see "Customize in Lattice Studio").
 - The app's upgrade card plans Add and Replace only. A function the outgoing facet serves that the new facet does not export stays routed to the old facet, and the preview lists it under "Still served by the outgoing facet". Removing them is a separate Remove cut, for example from Debug Contracts or with `cast`.
 - The package manager is Yarn.
