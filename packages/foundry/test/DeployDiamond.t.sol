@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.30;
+
+import { MultiInit } from "@diamond/initializers/MultiInit.sol";
+import { IDiamondLoupe } from "@diamond/interfaces/IDiamondLoupe.sol";
+import { Facet, FacetCut } from "@diamond/libraries/DiamondLib.sol";
+import { Lattice } from "@lattice/Lattice.sol";
+import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
+import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
+import { Test } from "forge-std/Test.sol";
+import { DeployDiamond } from "../script/DeployDiamond.s.sol";
+
+contract DeployDiamondTest is Test {
+    address internal admin = makeAddr("admin");
+    DeployDiamond internal deployer;
+    string internal recipe;
+
+    function setUp() public {
+        deployer = new DeployDiamond();
+        recipe = vm.readFile("test/fixtures/default.recipe.json");
+    }
+
+    /// @dev The one test that reads your own `diamond.recipe.json`. It stays green as long as that file builds.
+    function test_projectRecipe_buildsADiamondWithTheHederaLayer() public {
+        (address diamond,,) = _diamond(vm.readFile("diamond.recipe.json"));
+
+        assertTrue(
+            IDiamondLoupe(diamond).facetAddress(IHTSAdapter.createFungibleToken.selector) != address(0), "HTSAdapter"
+        );
+    }
+
+    function test_defaultRecipe_buildsTheBaseAndTheHederaLayer() public {
+        (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
+
+        assertEq(names.length, 8, "seven base facets and HTSAdapter");
+        assertEq(names[7], "HTSAdapter");
+
+        Facet[] memory facets = IDiamondLoupe(diamond).facets();
+        assertEq(facets.length, 8);
+
+        uint256 baseSelectors;
+        for (uint256 i; i < cuts.length; ++i) {
+            if (i < 7) baseSelectors += cuts[i].functionSelectors.length;
+            for (uint256 j; j < cuts[i].functionSelectors.length; ++j) {
+                assertEq(
+                    IDiamondLoupe(diamond).facetAddress(cuts[i].functionSelectors[j]),
+                    cuts[i].facetAddress,
+                    string.concat("a ", names[i], " selector is routed elsewhere")
+                );
+            }
+        }
+        assertEq(baseSelectors, 24, "the selector count Lattice Studio plans for the default base");
+    }
+
+    function test_defaultRecipe_makesTheAdminTheAdminOfEveryLayer() public {
+        (address diamond,,) = _diamond(recipe);
+
+        assertTrue(IAccessControl(diamond).hasRole(bytes32(0), admin), "DEFAULT_ADMIN_ROLE");
+        assertTrue(IAccessControl(diamond).hasRole(keccak256("HTS_MANAGER_ROLE"), admin), "HTS_MANAGER_ROLE");
+    }
+
+    /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.
+    function _diamond(string memory json)
+        internal
+        returns (address diamond, string[] memory names, FacetCut[] memory cuts)
+    {
+        address[] memory inits;
+        bytes[] memory calls;
+        (names, cuts, inits, calls) = deployer.build(json, admin);
+        Lattice lattice = new Lattice();
+        lattice.initialize(cuts, address(new MultiInit()), abi.encodeCall(MultiInit.multiInit, (inits, calls)));
+        diamond = address(lattice);
+    }
+}
