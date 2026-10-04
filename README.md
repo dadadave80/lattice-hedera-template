@@ -173,7 +173,7 @@ followed by two init steps, `ChainlinkAdapterInit` and `HTSAdapterInit`, that ma
 3. Export `recipe.json` from Studio and save it over `packages/foundry/diamond.recipe.json`.
 4. `yarn foundry:test`, then `yarn foundry:deploy --network hedera_testnet`. The deploy script adds `TokenSale` to what the recipe names.
 
-A diamond without the sale needs no Solidity at all: deploy it from Studio straight to Hedera testnet. CreateX is not on Hedera, so Studio deploys through `LatticeFactory`. Before that, it deploys any of Lattice's shared contracts the chain does not have yet, through Arachnid's deterministic deployment proxy. It verifies what it deploys on Sourcify.
+A diamond without the sale needs no Solidity at all. Choose Hedera Testnet in Studio and deploy it from the app with a wallet, or export Studio's Foundry script and run it, which is how the Studio diamond in the table at the top was deployed. Either way it goes through `LatticeFactory`, Studio's default path; the CreateX path is not available because CreateX is not on Hedera. Lattice's shared contracts a recipe needs and the chain does not have yet go out first, through Arachnid's deterministic deployment proxy, and Studio verifies the diamond it deploys on Sourcify.
 
 What to know:
 
@@ -245,7 +245,7 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 ## Links
 
 - [Lattice](https://github.com/dadadave80/lattice), the diamond module library, and its [Hedera guide](https://github.com/dadadave80/lattice/blob/feat/hedera-system-contract-modules/docs/guides/hedera.md)
-- [Lattice Studio](https://github.com/dadadave80/lattice-studio), and [its Hedera build](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/)
+- [Lattice Studio](https://github.com/dadadave80/lattice-studio), its Hedera work on [`feat/hedera`](https://github.com/dadadave80/lattice-studio/tree/feat/hedera), and [its Hedera build](https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/)
 - [Scaffold-HBAR docs](https://docs.hedera.com/solutions/tools/scaffold-hbar/index) and [create-scaffold-hbar](https://github.com/hedera-dev/create-scaffold-hbar)
 - [Chainlink price feeds on Hedera](https://docs.chain.link/data-feeds/price-feeds/addresses?network=hedera)
 - [HashScan](https://hashscan.io/testnet)

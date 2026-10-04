@@ -75,8 +75,8 @@ Seen during the build on 4 October:
 - GitHub reported 45 Dependabot alerts on the first push (2 critical, 13 high). Every flagged package
   (`next`, `axios`, `protobufjs`, `tar`, `hono` and others) is in the stock `blank` template's `yarn.lock` at the
   same entries; the template adds none. A new scaffold starts with these alerts.
-- GitHub's archive applies `export-ignore`, so `template.json`, `docs/` and `scripts/` stay out of a project
-  scaffolded from the published repository.
+- GitHub's archive applies `export-ignore`, so `docs/` and `scripts/` stay out of a project scaffolded from the
+  published repository. The CLI reads `template.json` and leaves it out too.
 - Source verification was not part of the build plan. The scaffold's `yarn foundry:verify:testnet` (Sourcify)
   verified all 18 reference contracts with exact runtime matches, including facets deployed through the
   deterministic deployment proxy and the diamond created inside `LatticeFactory`, and HashScan showed "Full
