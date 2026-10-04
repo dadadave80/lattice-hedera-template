@@ -23,10 +23,10 @@ const SLIPPAGE_BPS = 100n;
 /** Pays the stealth account's first transaction, the sweep, which cost about 0.03 HBAR on testnet. */
 const DEFAULT_STIPEND_HBAR = "0.5";
 /**
- * Lazy-creating the stealth account and delivering the token used 1,433,536 gas on testnet, 5% under the relay's
- * estimate. Hedera charges the gas used, not the limit, so the headroom costs nothing.
+ * Lazy-creating the stealth account and delivering the token used 1,433,536 gas on testnet, only 5% under the relay's
+ * estimate. Hedera charges the gas used, but the payer must hold the whole limit's worth up front, so keep it close.
  */
-const BUY_FOR_GAS = 3_000_000n;
+const BUY_FOR_GAS = 2_000_000n;
 
 /** Buys the sale's token for someone who registered a meta-address, delivering it to a fresh stealth address. */
 export const BuyPrivatelyCard = () => {
