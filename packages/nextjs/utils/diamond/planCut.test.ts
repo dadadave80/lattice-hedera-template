@@ -1,4 +1,12 @@
-import { FacetCutAction, planCut, unpackSelectors } from "./planCut";
+import {
+  FacetCut,
+  FacetCutAction,
+  knownContractName,
+  outgoingFacets,
+  planCut,
+  selectorsOutsideSale,
+  unpackSelectors,
+} from "./planCut";
 import { zeroAddress } from "viem";
 import { describe, expect, it } from "vitest";
 
@@ -37,5 +45,96 @@ describe("planCut", () => {
 
   it("plans nothing for a facet that is already mounted", () => {
     expect(planCut(NEW_FACET, ["0x08bf598d"], [NEW_FACET])).toEqual([]);
+  });
+});
+
+const BUY = "0x08bf598d";
+const QUOTE = "0xed1bd76c";
+const BONUS_BPS = "0x404f21a5";
+const DIAMOND_CUT = "0x1f931c1c";
+const SALE_FACET = "0x3333333333333333333333333333333333333333";
+const CUT_FACET = "0x4444444444444444444444444444444444444444";
+
+const replace = (...functionSelectors: `0x${string}`[]): FacetCut => ({
+  facetAddress: NEW_FACET,
+  action: FacetCutAction.Replace,
+  functionSelectors,
+});
+const add = (...functionSelectors: `0x${string}`[]): FacetCut => ({
+  facetAddress: NEW_FACET,
+  action: FacetCutAction.Add,
+  functionSelectors,
+});
+
+describe("knownContractName", () => {
+  const deployed = {
+    Diamond: { address: "0xAbCdEf0000000000000000000000000000000001" },
+    TokenSaleV2: { address: NEW_FACET },
+  };
+
+  it("names the deployed contract at the address", () => {
+    expect(knownContractName(NEW_FACET, deployed)).toBe("TokenSaleV2");
+  });
+
+  it("matches regardless of letter case", () => {
+    expect(knownContractName("0xabcdef0000000000000000000000000000000001", deployed)).toBe("Diamond");
+    expect(knownContractName("0xABCDEF0000000000000000000000000000000001", deployed)).toBe("Diamond");
+  });
+
+  it("returns nothing for an address that is not a deployment", () => {
+    expect(knownContractName(OLD_FACET, deployed)).toBeUndefined();
+  });
+
+  it("returns nothing when the network has no deployments", () => {
+    expect(knownContractName(OLD_FACET, undefined)).toBeUndefined();
+  });
+});
+
+describe("outgoingFacets", () => {
+  const facets = [
+    { facetAddress: OLD_FACET, functionSelectors: [BUY, QUOTE, BONUS_BPS] },
+    { facetAddress: CUT_FACET, functionSelectors: [DIAMOND_CUT] },
+  ] as const;
+
+  it("groups the replaced selectors by the facet that serves them today", () => {
+    const cuts = [replace(BUY, DIAMOND_CUT), add("0x11111111")];
+
+    expect(outgoingFacets(cuts, facets)).toEqual([
+      { facetAddress: OLD_FACET, functionSelectors: [BUY] },
+      { facetAddress: CUT_FACET, functionSelectors: [DIAMOND_CUT] },
+    ]);
+  });
+
+  it("takes nothing from any facet when the plan only adds", () => {
+    expect(outgoingFacets([add(BONUS_BPS)], facets)).toEqual([]);
+  });
+});
+
+describe("selectorsOutsideSale", () => {
+  const facets = [
+    { facetAddress: SALE_FACET, functionSelectors: [BUY, QUOTE] },
+    { facetAddress: CUT_FACET, functionSelectors: [DIAMOND_CUT, "0x2f2ff15d"] },
+  ] as const;
+
+  it("accepts replacing the sale's own functions and adding a new one", () => {
+    expect(selectorsOutsideSale([replace(BUY, QUOTE), add(BONUS_BPS)], facets)).toEqual([]);
+  });
+
+  it("flags a selector the diamond routes to a facet other than the sale's", () => {
+    expect(selectorsOutsideSale([replace(BUY, "0x2f2ff15d")], facets)).toEqual(["0x2f2ff15d"]);
+  });
+
+  it("flags replacing diamondCut", () => {
+    expect(selectorsOutsideSale([replace(DIAMOND_CUT)], facets)).toEqual([DIAMOND_CUT]);
+  });
+
+  it("flags adding diamondCut", () => {
+    expect(selectorsOutsideSale([add(DIAMOND_CUT)], [facets[0]])).toEqual([DIAMOND_CUT]);
+  });
+
+  it("flags every replaced selector when no facet serves buy", () => {
+    expect(selectorsOutsideSale([replace(QUOTE)], [{ facetAddress: OLD_FACET, functionSelectors: [QUOTE] }])).toEqual([
+      QUOTE,
+    ]);
   });
 });
