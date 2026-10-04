@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, formatUnits, parseAbi, zeroAddress } from "viem";
-import { useAccount, useBlockNumber, useReadContract, useReadContracts, useWriteContract } from "wagmi";
+import { useAccount, useBalance, useBlockNumber, useReadContract, useReadContracts, useWriteContract } from "wagmi";
 import { DiamondNotDeployed } from "~~/components/diamond/DiamondNotDeployed";
 import {
   useDeployedContractInfo,
@@ -87,12 +87,22 @@ export const SaleCard = () => {
     functionName: "bonusBps",
     query: { enabled: diamond !== undefined, retry: false },
   });
+  const { data: walletBalance, queryKey: walletBalanceQueryKey } = useBalance({
+    address,
+    chainId: targetNetwork.id,
+    query: { enabled: address !== undefined },
+  });
   const { data: blockNumber } = useBlockNumber({ watch: true, chainId: targetNetwork.id });
 
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: bonusQueryKey });
+    queryClient.invalidateQueries({ queryKey: walletBalanceQueryKey });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockNumber]);
+
+  // The relay cannot simulate a transaction from an address Hedera has no account for, and an
+  // address only gets one when it first receives HBAR.
+  const isUnfunded = walletBalance?.value === 0n;
 
   const transactor = useTransactor();
   const { writeContractAsync: writeToken } = useWriteContract();
@@ -176,7 +186,7 @@ export const SaleCard = () => {
 
       <div className="flex flex-wrap items-center gap-3">
         {address && isAssociated !== true && (
-          <button className="btn btn-secondary btn-sm" onClick={associate} disabled={isAssociating}>
+          <button className="btn btn-secondary btn-sm" onClick={associate} disabled={isAssociating || isUnfunded}>
             {isAssociating && <span className="loading loading-spinner loading-xs" />}
             1. Associate {symbol ?? "token"}
           </button>
@@ -184,7 +194,9 @@ export const SaleCard = () => {
         <button
           className="btn btn-primary btn-sm"
           onClick={buy}
-          disabled={!address || tinybars === undefined || quote === undefined || isBuying || isStopped === true}
+          disabled={
+            !address || isUnfunded || tinybars === undefined || quote === undefined || isBuying || isStopped === true
+          }
         >
           {isAssociated === true ? "Buy" : "2. Buy"}
         </button>
@@ -197,11 +209,20 @@ export const SaleCard = () => {
 
       {isStopped && <p className="text-sm text-warning mt-4 mb-0">Sales are paused.</p>}
 
-      {address && isAssociated !== true && (
-        <p className="text-xs text-base-content/60 mt-4 mb-0">
-          On Hedera an account must associate with a token before it can receive it. Need testnet HBAR?{" "}
+      {isUnfunded ? (
+        <p className="text-sm text-warning mt-4 mb-0">
+          This wallet holds no HBAR, so it cannot pay for a transaction. A wallet that has never received HBAR does not
+          exist on Hedera yet. Fund it first:{" "}
           <HederaPortalFaucet variant="link" label="Use the faucet" showIcon={false} />
         </p>
+      ) : (
+        address &&
+        isAssociated !== true && (
+          <p className="text-xs text-base-content/60 mt-4 mb-0">
+            On Hedera an account must associate with a token before it can receive it. Need testnet HBAR?{" "}
+            <HederaPortalFaucet variant="link" label="Use the faucet" showIcon={false} />
+          </p>
+        )
       )}
     </div>
   );
