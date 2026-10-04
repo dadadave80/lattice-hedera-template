@@ -1,5 +1,6 @@
 import type { NextPage } from "next";
 import { FacetTable } from "~~/components/diamond/FacetTable";
+import { StudioCard } from "~~/components/diamond/StudioCard";
 import { UpgradeCard } from "~~/components/diamond/UpgradeCard";
 import { getMetadata } from "~~/utils/scaffold-hbar/getMetadata";
 
@@ -19,6 +20,7 @@ const Diamond: NextPage = () => {
         </p>
       </div>
       <FacetTable />
+      <StudioCard />
       <UpgradeCard />
     </div>
   );
