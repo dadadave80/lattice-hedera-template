@@ -5,6 +5,7 @@ import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
 import { HTSAdapterInit } from "@lattice/tokens/hedera/HTSAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
+import { console } from "forge-std/console.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
 import { TokenSaleInit } from "../contracts/TokenSaleInit.sol";
 
@@ -20,12 +21,29 @@ import "../contracts/LatticeFacets.sol";
 ///           of the recipe because Studio's catalog does not carry the Hedera facets yet.
 /// @dev `build` and `assemble` take the recipe as a string and never broadcast, so tests call them directly.
 contract DeployDiamond is BaseDeploy {
+    string internal constant RECIPE = "diamond.recipe.json";
+
     /// @dev The key the sale reads its HBAR/USD rate under, on whichever oracle facet the recipe cuts.
     bytes32 internal constant HBAR_USD = "HBAR/USD";
 
     /// @dev How many facets and initializers the Hedera layer appends to the recipe's.
     uint256 internal constant HEDERA_FACETS = 2;
     uint256 internal constant HEDERA_INITS = 3;
+
+    function run() external returns (address diamond) {
+        require(
+            block.chainid == 295 || block.chainid == 296,
+            "DeployDiamond: this diamond needs Hedera (HTS and a Chainlink feed). Deploy with --network hedera_testnet"
+        );
+        string memory json = vm.readFile(RECIPE);
+
+        vm.startBroadcast();
+        (, address deployer,) = vm.readCallers();
+        diamond = assemble(json, deployer);
+        vm.stopBroadcast();
+
+        console.log("Diamond deployed at", diamond);
+    }
 
     /// @notice Deploys the diamond described by `json` plus the Hedera layer, with `admin` holding every role.
     function assemble(string memory json, address admin) public returns (address diamond) {

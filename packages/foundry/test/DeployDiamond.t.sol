@@ -88,6 +88,15 @@ contract DeployDiamondTest is Test {
         deployer.build("{}", admin);
     }
 
+    function test_run_refusesAChainThatIsNotHedera() public {
+        vm.expectRevert(
+            bytes(
+                "DeployDiamond: this diamond needs Hedera (HTS and a Chainlink feed). Deploy with --network hedera_testnet"
+            )
+        );
+        deployer.run();
+    }
+
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.
     function _diamond(string memory json)
         internal
