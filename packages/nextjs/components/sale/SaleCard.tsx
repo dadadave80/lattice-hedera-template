@@ -28,6 +28,7 @@ export const SaleCard = () => {
   const sale = useSale();
   const { data: diamond, isLoading: isDiamondLoading } = useDeployedContractInfo({ contractName: "Diamond" });
   const [hbar, setHbar] = useState("");
+  const [isAssociating, setIsAssociating] = useState(false);
   const tinybars = hbarToTinybars(hbar);
 
   const { data: hbarUsd } = useScaffoldReadContract({
@@ -72,7 +73,7 @@ export const SaleCard = () => {
   });
 
   const transactor = useTransactor();
-  const { writeContractAsync: writeToken, isPending: isAssociating } = useWriteContract();
+  const { writeContractAsync: writeToken } = useWriteContract();
   const { writeContractAsync: writeDiamond, isMining: isBuying } = useScaffoldWriteContract({
     contractName: "Diamond",
   });
@@ -80,10 +81,15 @@ export const SaleCard = () => {
   const associate = async () => {
     if (!sale.token) return;
     const tokenAddress = sale.token;
-    await transactor(() =>
-      writeToken({ address: tokenAddress, abi: hrc719Abi, functionName: "associate", chainId: targetNetwork.id }),
-    );
-    await refetchAssociation();
+    try {
+      setIsAssociating(true);
+      await transactor(() =>
+        writeToken({ address: tokenAddress, abi: hrc719Abi, functionName: "associate", chainId: targetNetwork.id }),
+      );
+      await refetchAssociation();
+    } finally {
+      setIsAssociating(false);
+    }
   };
 
   const buy = async () => {
@@ -146,6 +152,7 @@ export const SaleCard = () => {
       <div className="flex flex-wrap items-center gap-3">
         {address && isAssociated !== true && (
           <button className="btn btn-secondary btn-sm" onClick={associate} disabled={isAssociating}>
+            {isAssociating && <span className="loading loading-spinner loading-xs" />}
             1. Associate {symbol ?? "token"}
           </button>
         )}
