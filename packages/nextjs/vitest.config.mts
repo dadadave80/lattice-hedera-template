@@ -1,9 +1,8 @@
-import path from "path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: { "~~": path.resolve(__dirname) },
+    alias: { "~~": import.meta.dirname },
   },
   test: {
     include: ["utils/**/*.test.ts"],
