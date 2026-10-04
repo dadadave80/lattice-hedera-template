@@ -313,7 +313,7 @@ Before you deploy it, check:
 | Command | What it does |
 | --- | --- |
 | `yarn foundry:test` | Forge tests against a mock HTS and a mock feed, then the Node tests for the scripts. No chain needed. |
-| `yarn next:test` | Unit tests for the frontend's unit conversion, cut planning, selector names, Studio catalog matching, stealth-address math and announcement scanning. |
+| `yarn next:test` | Unit tests for the frontend's unit conversion, cut planning, selector names, Studio catalog matching, stealth-address math, announcement scanning, sweep cost and error messages. |
 | `yarn next:dev` | The app, on `http://localhost:3000`. |
 | `yarn foundry:deploy --network hedera_testnet` | Deploys the diamond from the recipe, regenerates the frontend's contract file, then verifies its contracts on Sourcify. |
 | `yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet` | Deploys the upgrade facet and verifies it. |

@@ -26,10 +26,11 @@ Tests need no chain. `test/SaleTestBase.sol` builds the diamond through the depl
 | File | Covers |
 | --- | --- |
 | `test/TokenSale.t.sol` | Launching the sale, quoting, buying, association, slippage, HTS response codes, admin functions, the storage slot, `exportSelectors()`. |
-| `test/TokenSaleUpgrade.t.sol` | Cutting `TokenSaleV2` into a diamond that is already selling. |
+| `test/TokenSaleUpgrade.t.sol` | Cutting `TokenSaleV2` into a diamond that is already selling, and its `exportSelectors()`. |
 | `test/StealthBuy.t.sol` | `buyFor`: the stipend and the tokens reaching a new address, the exact ERC-5564 `Announcement`, pricing at `quote` (bonus included after a cut to `TokenSaleV2`), slippage, the emergency stop, an address that refuses HBAR or cannot take the token, a stealth address that buys again from its `receive()`, the sale totals, `exportSelectors()`. |
 | `test/DeployStealthBuy.t.sol` | Adding the three stealth facets to a diamond built from a recipe without them: one cut, the inits on a live diamond, a delivery afterwards, the deployment record, and the stop when no diamond is recorded. |
 | `test/DeployDiamond.t.sol` | Reading recipes: the default, init steps that take no arguments, an oracle swap, `owners`, `exclude`, the stop when `HTSAdapter` or its init step is missing, feed registration when the recipe names another admin, and every message a bad recipe produces. |
+| `test/DeployGuardian.t.sol` | The deploy making the deployer an emergency guardian, leaving that to a recipe admin that is not the deployer, and skipping a diamond without `EmergencyStop`; the stop when `HEDERA_FACETS` counts a facet `build()` does not add, or a project facet has no artifact under its own name. |
 | `scripts-js/*.test.js` | The merged `Diamond` ABI, the Lattice Studio link, the Foundry version warning, the Sourcify verification helpers. |
 
 `yarn test:testnet` and `yarn test:mainnet` fork a live network. The suite does not need them.
