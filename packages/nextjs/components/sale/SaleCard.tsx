@@ -45,6 +45,8 @@ export const SaleCard = () => {
     query: { enabled: sale.isLaunched && tinybars !== undefined },
   });
 
+  const { data: isStopped } = useScaffoldReadContract({ contractName: "Diamond", functionName: "isStopped" });
+
   // An HTS token answers the ERC-20 read functions at its own address.
   const token = { address: sale.token, abi: erc20Abi } as const;
   const { data: tokenData, refetch: refetchToken } = useReadContracts({
@@ -171,7 +173,11 @@ export const SaleCard = () => {
             1. Associate {symbol ?? "token"}
           </button>
         )}
-        <button className="btn btn-primary btn-sm" onClick={buy} disabled={!address || quote === undefined || isBuying}>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={buy}
+          disabled={!address || quote === undefined || isBuying || isStopped === true}
+        >
           {isAssociated === true ? "Buy" : "2. Buy"}
         </button>
         {address && typeof owned === "bigint" && (
@@ -180,6 +186,8 @@ export const SaleCard = () => {
           </span>
         )}
       </div>
+
+      {isStopped && <p className="text-sm text-warning mt-4 mb-0">Sales are paused.</p>}
 
       {address && isAssociated !== true && (
         <p className="text-xs text-base-content/60 mt-4 mb-0">
