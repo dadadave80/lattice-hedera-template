@@ -7,7 +7,9 @@ import {
   getAddress,
   hexToBigInt,
   hexToBytes,
+  isAddress,
   isAddressEqual,
+  isHex,
   keccak256,
   numberToHex,
   size,
@@ -62,6 +64,17 @@ export function deriveStealthKeys(signature: Hex): StealthKeys {
 /** The 66-byte meta-address a recipient registers: the compressed spending key, then the compressed viewing key. */
 export function encodeMetaAddress(spendingPublicKey: Hex, viewingPublicKey: Hex): Hex {
   return concat([spendingPublicKey, viewingPublicKey]);
+}
+
+/**
+ * What a payer typed as the recipient: a wallet address, to look up in the registry, or the stealth meta-address itself,
+ * bare or in ERC-5564's `st:<chain>:0x…` form. Undefined for anything else.
+ */
+export function parseRecipient(input: string): { address: Address } | { metaAddress: Hex } | undefined {
+  const value = input.trim().replace(/^st:[a-z0-9-]+:/i, "");
+  if (isAddress(value)) return { address: value };
+  if (isHex(value) && size(value) === 2 * COMPRESSED_KEY_BYTES) return { metaAddress: value };
+  return undefined;
 }
 
 export function decodeMetaAddress(metaAddress: Hex): { spendingPublicKey: Hex; viewingPublicKey: Hex } {

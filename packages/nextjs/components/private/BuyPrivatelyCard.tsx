@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
-import { Address, Hex, erc20Abi, formatUnits, isAddress, zeroAddress } from "viem";
+import { Address, Hex, erc20Abi, formatUnits, zeroAddress } from "viem";
 import { useAccount, useConfig, useReadContract, useWriteContract } from "wagmi";
 import { HederaAddress } from "~~/components/scaffold-hbar";
 import {
@@ -18,7 +18,7 @@ import { TINYBAR_DECIMALS, formatAmount, hbarToTinybars, minTokensOut, tinybarsT
 import { AllowedChainIds } from "~~/utils/scaffold-hbar";
 import { simulateContractWriteAndNotifyError } from "~~/utils/scaffold-hbar/contract";
 import { erc6538RegistryAbi, stealthBuyAbi } from "~~/utils/stealth/abi";
-import { SCHEME_ID, decodeMetaAddress, generateStealthAddress } from "~~/utils/stealth/stealthAddress";
+import { SCHEME_ID, decodeMetaAddress, generateStealthAddress, parseRecipient } from "~~/utils/stealth/stealthAddress";
 
 /** Accept up to 1% fewer tokens than quoted if the oracle moves before the transaction lands. */
 const SLIPPAGE_BPS = 100n;
@@ -46,14 +46,17 @@ export const BuyPrivatelyCard = () => {
   const stipend = hbarToTinybars(stipendHbar);
   const isStipendTooLow = stipend !== undefined && stipend < MIN_STIPEND_TINYBARS;
 
-  const { data: metaAddress } = useReadContract({
+  const parsedRecipient = parseRecipient(recipient);
+  const recipientAddress = parsedRecipient && "address" in parsedRecipient ? parsedRecipient.address : undefined;
+  const { data: registered } = useReadContract({
     chainId: targetNetwork.id,
     address: diamond?.address,
     abi: erc6538RegistryAbi,
     functionName: "stealthMetaAddressOf",
-    args: [isAddress(recipient) ? recipient : zeroAddress, SCHEME_ID],
-    query: { enabled: diamond !== undefined && isAddress(recipient) },
+    args: [recipientAddress ?? zeroAddress, SCHEME_ID],
+    query: { enabled: diamond !== undefined && recipientAddress !== undefined },
   });
+  const metaAddress = parsedRecipient && "metaAddress" in parsedRecipient ? parsedRecipient.metaAddress : registered;
   const metaAddressError = metaAddress === undefined || metaAddress === "0x" ? undefined : invalidReason(metaAddress);
 
   const { data: quote } = useScaffoldReadContract({
@@ -145,7 +148,7 @@ export const BuyPrivatelyCard = () => {
               <span className="font-medium">Recipient</span>
               <input
                 className="input input-bordered w-full font-mono text-sm"
-                placeholder="0x… address that registered a meta-address"
+                placeholder="0x… their wallet address, or their stealth meta-address"
                 value={recipient}
                 onChange={event => {
                   setRecipient(event.target.value.trim());
@@ -177,12 +180,22 @@ export const BuyPrivatelyCard = () => {
               address pays for its sweep from it.
             </p>
           )}
-          {isAddress(recipient) && metaAddress === "0x" && (
-            <p className="text-sm text-warning mt-3 mb-0">This address has not registered a meta-address here.</p>
+          {recipient !== "" && parsedRecipient === undefined && (
+            <p className="text-sm text-warning mt-3 mb-0">
+              Enter the recipient&apos;s wallet address, or the stealth meta-address their Receive privately card shows.
+            </p>
+          )}
+          {recipientAddress && registered === "0x" && (
+            <p className="text-sm text-warning mt-3 mb-0">
+              This address has not registered a meta-address here. Ask for their stealth meta-address instead.
+            </p>
           )}
           {metaAddressError && (
             <p className="text-sm text-error mt-3 mb-0">
-              This address registered a meta-address this page cannot use. {metaAddressError}.
+              {recipientAddress
+                ? "This address registered a meta-address this page cannot use."
+                : "This is not a stealth meta-address this page can use."}{" "}
+              {metaAddressError}.
             </p>
           )}
 

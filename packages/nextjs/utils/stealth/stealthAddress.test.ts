@@ -7,6 +7,7 @@ import {
   encodeMetaAddress,
   generateStealthAddress,
   parseMetadata,
+  parseRecipient,
   stealthAddressFrom,
   stealthPrivateKeyFrom,
 } from "./stealthAddress";
@@ -269,5 +270,29 @@ describe("parseMetadata", () => {
 
   it("returns nothing for empty metadata, which has no view tag", () => {
     expect(parseMetadata("0x")).toBeUndefined();
+  });
+});
+
+describe("parseRecipient", () => {
+  const metaAddress = encodeMetaAddress(
+    bytesToHex(secp256k1.getPublicKey(1n, true)),
+    bytesToHex(secp256k1.getPublicKey(2n, true)),
+  );
+
+  it("takes a wallet address, to look up in the registry", () => {
+    const address = privateKeyToAddress(pad("0x01"));
+    expect(parseRecipient(address)).toEqual({ address });
+  });
+
+  it("takes a meta-address bare or in ERC-5564's st:<chain>: form, ignoring surrounding spaces", () => {
+    expect(parseRecipient(metaAddress)).toEqual({ metaAddress });
+    expect(parseRecipient(`  st:eth:${metaAddress} `)).toEqual({ metaAddress });
+  });
+
+  it("rejects anything else", () => {
+    expect(parseRecipient("")).toBeUndefined();
+    expect(parseRecipient("0x1234")).toBeUndefined();
+    expect(parseRecipient(slice(metaAddress, 0, 65))).toBeUndefined();
+    expect(parseRecipient("alice.hbar")).toBeUndefined();
   });
 });
