@@ -1,5 +1,5 @@
 import { announcementAbi } from "./abi";
-import { SCHEME_ID } from "./stealthAddress";
+import { SCHEME_ID, StealthKeys, checkAnnouncement, parseMetadata } from "./stealthAddress";
 import { Address, Hex, decodeEventLog, toEventSelector } from "viem";
 
 export const ANNOUNCEMENT_TOPIC = toEventSelector(announcementAbi[0]);
@@ -82,6 +82,25 @@ export async function fetchAnnouncements(
     }
   }
   return announcements;
+}
+
+/**
+ * The announcements that paid the holder of `keys`, one per stealth address, in the order they were made. Anyone can
+ * announce through the diamond, so a later copy of an announcement with other metadata does not replace the first.
+ */
+export function deliveriesTo(
+  announcements: Announcement[],
+  keys: Pick<StealthKeys, "viewingPrivateKey" | "spendingPublicKey">,
+): Announcement[] {
+  const mine = new Map<Address, Announcement>();
+  for (const announcement of announcements) {
+    const metadata = parseMetadata(announcement.metadata);
+    if (!metadata || mine.has(announcement.stealthAddress)) continue;
+    if (checkAnnouncement({ ...announcement, viewTag: metadata.viewTag }, keys)) {
+      mine.set(announcement.stealthAddress, announcement);
+    }
+  }
+  return [...mine.values()];
 }
 
 /** The public mirror node of a Hedera network. */

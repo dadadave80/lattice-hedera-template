@@ -1,6 +1,15 @@
 import { announcementAbi } from "./abi";
-import { ANNOUNCEMENT_TOPIC, MirrorLog, decodeAnnouncement, fetchAnnouncements, searchWindows } from "./announcements";
-import { Address, Hex, encodeAbiParameters, encodeEventTopics } from "viem";
+import {
+  ANNOUNCEMENT_TOPIC,
+  Announcement,
+  MirrorLog,
+  decodeAnnouncement,
+  deliveriesTo,
+  fetchAnnouncements,
+  searchWindows,
+} from "./announcements";
+import { deriveStealthKeys, encodeMetaAddress, generateStealthAddress } from "./stealthAddress";
+import { Address, Hex, bytesToHex, concat, encodeAbiParameters, encodeEventTopics, numberToHex } from "viem";
 import { describe, expect, it } from "vitest";
 
 const DIAMOND = "0x4Eb94355872aB90ab258B940eE98B706dC9B2aa9";
@@ -102,5 +111,58 @@ describe("fetchAnnouncements", () => {
 
     expect(announcements.map(announcement => announcement.transactionHash)).toEqual(["0x01", "0x03", "0x04"]);
     expect(requested).toHaveLength(4);
+  });
+});
+
+describe("deliveriesTo", () => {
+  const randomKeys = () => deriveStealthKeys(bytesToHex(crypto.getRandomValues(new Uint8Array(65))));
+  const keys = randomKeys();
+  const tokenMetadata = (viewTag: Hex, token: Hex) =>
+    concat([viewTag, "0xa9059cbb", token, numberToHex(1000n, { size: 32 })]);
+  const announce = (
+    payment: ReturnType<typeof generateStealthAddress>,
+    metadata: Hex,
+    transactionHash: Hex,
+  ): Announcement => ({
+    schemeId: 1n,
+    stealthAddress: payment.stealthAddress,
+    caller: BUYER,
+    ephemeralPublicKey: payment.ephemeralPublicKey,
+    metadata,
+    transactionHash,
+    timestamp: "1",
+  });
+  const paymentTo = (to: typeof keys) =>
+    generateStealthAddress(encodeMetaAddress(to.spendingPublicKey, to.viewingPublicKey));
+
+  it("keeps the first announcement of a stealth address, so a later copy cannot replace it", () => {
+    const payment = paymentTo(keys);
+    const genuine = announce(
+      payment,
+      tokenMetadata(payment.viewTag, "0x00000000000000000000000000000000004d2b1A"),
+      "0x01",
+    );
+    const replay = announce(
+      payment,
+      tokenMetadata(payment.viewTag, "0x000000000000000000000000000000000000dEaD"),
+      "0x02",
+    );
+
+    expect(deliveriesTo([genuine, replay], keys)).toEqual([genuine]);
+  });
+
+  it("keeps only announcements to the holder of the keys, in the order they were made", () => {
+    const first = paymentTo(keys);
+    const second = paymentTo(keys);
+    const mine = [announce(first, first.viewTag, "0x01"), announce(second, second.viewTag, "0x03")];
+    const someoneElse = paymentTo(randomKeys());
+    const noViewTag = paymentTo(keys);
+
+    expect(
+      deliveriesTo(
+        [mine[0], announce(someoneElse, someoneElse.viewTag, "0x02"), announce(noViewTag, "0x", "0x04"), mine[1]],
+        keys,
+      ),
+    ).toEqual(mine);
   });
 });

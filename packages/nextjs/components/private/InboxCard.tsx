@@ -2,23 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Address, Hex, createWalletClient, erc20Abi, http, isAddress, isAddressEqual } from "viem";
+import { Address, createWalletClient, erc20Abi, http, isAddress, isAddressEqual } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { useAccount, useBalance, useReadContracts } from "wagmi";
 import type { KeysProps } from "~~/components/private/PrivatePurchases";
 import { HederaAddress } from "~~/components/scaffold-hbar";
 import { useDeployedContractInfo, useTargetNetwork, useTransactor } from "~~/hooks/scaffold-hbar";
+import { useSale } from "~~/hooks/useSale";
 import scaffoldConfig, { ScaffoldConfig } from "~~/scaffold.config";
 import { formatAmount } from "~~/utils/sale/units";
-import { fetchAnnouncements, mirrorNodeUrl } from "~~/utils/stealth/announcements";
-import {
-  StealthKeys,
-  checkAnnouncement,
-  computeStealthPrivateKey,
-  parseMetadata,
-} from "~~/utils/stealth/stealthAddress";
-
-type Delivery = { stealthAddress: Address; ephemeralPublicKey: Hex; token?: Address; timestamp: string };
+import { Announcement, deliveriesTo, fetchAnnouncements, mirrorNodeUrl } from "~~/utils/stealth/announcements";
+import { StealthKeys, computeStealthPrivateKey } from "~~/utils/stealth/stealthAddress";
 
 /** Finds the deliveries made to the holder of the keys, and sweeps each one with its own stealth key. */
 export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
@@ -37,16 +31,10 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
     enabled: keys !== undefined && diamond !== undefined,
   });
 
-  const deliveries = useMemo(() => {
-    if (!keys || !announcements) return [];
-    const mine = new Map<Address, Delivery>();
-    for (const announcement of announcements) {
-      const metadata = parseMetadata(announcement.metadata);
-      if (!metadata || !checkAnnouncement({ ...announcement, viewTag: metadata.viewTag }, keys)) continue;
-      mine.set(announcement.stealthAddress, { ...announcement, token: metadata.token });
-    }
-    return [...mine.values()].reverse();
-  }, [announcements, keys]);
+  const deliveries = useMemo(
+    () => (keys && announcements ? deliveriesTo(announcements, keys).reverse() : []),
+    [announcements, keys],
+  );
 
   return (
     <div className="bg-base-100 rounded-2xl shadow-md p-8 border border-base-300">
@@ -60,8 +48,8 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
         )}
       </div>
       <p className="text-sm text-base-content/70 mt-1">
-        Reads every announcement this diamond has made from the mirror node, and checks each one with your viewing key
-        here in the browser.
+        Reads every announcement made through this diamond from the mirror node, and checks each one with your viewing
+        key here in the browser.
       </p>
 
       {!address ? (
@@ -94,9 +82,10 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
   );
 };
 
-const DeliveryRow = ({ delivery, keys }: { delivery: Delivery; keys: StealthKeys }) => {
+const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: StealthKeys }) => {
   const { address } = useAccount();
   const { targetNetwork } = useTargetNetwork();
+  const sale = useSale();
   const [to, setTo] = useState("");
   const [isSweeping, setIsSweeping] = useState(false);
 
@@ -112,18 +101,16 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Delivery; keys: StealthKeys
   );
   const transactor = useTransactor(stealthClient);
 
-  const token = delivery.token && ({ address: delivery.token, abi: erc20Abi, chainId: targetNetwork.id } as const);
+  // Anyone can announce through the diamond, so the row ignores the token the metadata names and uses the sale's.
+  const token = { address: sale.token, abi: erc20Abi, chainId: targetNetwork.id } as const;
   const { data: tokenData, refetch: refetchToken } = useReadContracts({
-    contracts: token
-      ? [
-          { ...token, functionName: "symbol" },
-          { ...token, functionName: "decimals" },
-          { ...token, functionName: "balanceOf", args: [delivery.stealthAddress] },
-        ]
-      : [],
-    query: { enabled: token !== undefined },
+    contracts: [
+      { ...token, functionName: "symbol" },
+      { ...token, functionName: "balanceOf", args: [delivery.stealthAddress] },
+    ],
+    query: { enabled: sale.isLaunched },
   });
-  const [symbol, decimals, tokenBalance] = tokenData?.map(read => read.result) ?? [];
+  const [symbol, tokenBalance] = tokenData?.map(read => read.result) ?? [];
   const { data: hbarBalance, refetch: refetchHbar } = useBalance({
     address: delivery.stealthAddress,
     chainId: targetNetwork.id,
@@ -131,7 +118,7 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Delivery; keys: StealthKeys
 
   const isToRegisteringWallet = address !== undefined && isAddress(to) && isAddressEqual(to, address);
   const canSweep =
-    delivery.token !== undefined &&
+    sale.isLaunched &&
     isAddress(to) &&
     typeof tokenBalance === "bigint" &&
     tokenBalance > 0n &&
@@ -139,8 +126,8 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Delivery; keys: StealthKeys
     hbarBalance.value > 0n;
 
   const sweep = async () => {
-    if (!delivery.token || !isAddress(to) || typeof tokenBalance !== "bigint") return;
-    const tokenAddress = delivery.token;
+    if (!sale.token || !isAddress(to) || typeof tokenBalance !== "bigint") return;
+    const tokenAddress = sale.token;
     try {
       setIsSweeping(true);
       await transactor(() =>
@@ -169,12 +156,10 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Delivery; keys: StealthKeys
         </span>
       </div>
       <p className="text-sm m-0 mt-2">
-        {typeof tokenBalance === "bigint" && typeof decimals === "number"
-          ? `${formatAmount(tokenBalance, decimals)} ${symbol ?? ""} · `
-          : ""}
+        {typeof tokenBalance === "bigint" ? `${formatAmount(tokenBalance, sale.decimals)} ${symbol ?? ""} · ` : ""}
         {hbarBalance ? `${formatAmount(hbarBalance.value, hbarBalance.decimals)} HBAR` : "…"}
       </p>
-      {delivery.token && (
+      {sale.isLaunched && (
         <div className="flex flex-wrap gap-3 mt-3">
           <input
             className="input input-bordered input-sm grow font-mono text-sm"
