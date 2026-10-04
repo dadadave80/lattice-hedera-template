@@ -1,6 +1,6 @@
 {
   "name": "lattice-hedera-template",
-  "description": "Upgradeable HTS token sale on a Lattice diamond, priced by Chainlink, customizable in Lattice Studio.",
+  "description": "An upgradeable HTS token sale on a Lattice diamond, priced by Chainlink, with private purchases to ERC-5564 stealth addresses, and customizable in Lattice Studio.",
   "version": "0.1.0",
   "create-scaffold-hbar": {
     "capabilities": {
