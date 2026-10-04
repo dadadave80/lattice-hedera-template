@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
-    "@hiero-ledger/sdk": "^2.80.0",
+    "@hiero-ledger/sdk": "^2.89.1",
     "@noble/curves": "1.9.1",
     "@rainbow-me/rainbowkit": "2.2.9",
     "@react-native-async-storage/async-storage": "^2.2.0",
