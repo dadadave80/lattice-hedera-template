@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Address, Hex, isAddress, parseAbi, zeroAddress } from "viem";
-import { usePublicClient } from "wagmi";
+import { Address, Hex, isAddress, parseAbi, zeroAddress, zeroHash } from "viem";
+import { useAccount, usePublicClient } from "wagmi";
 import { HederaAddress } from "~~/components/scaffold-hbar";
-import { useDeployedContractInfo, useScaffoldWriteContract, useTargetNetwork } from "~~/hooks/scaffold-hbar";
+import {
+  useDeployedContractInfo,
+  useScaffoldReadContract,
+  useScaffoldWriteContract,
+  useTargetNetwork,
+} from "~~/hooks/scaffold-hbar";
 import { useSelectorNames } from "~~/hooks/useSelectorNames";
 import {
   FacetCut,
@@ -26,6 +31,9 @@ const upgradeAbi = parseAbi([
   "function facets() view returns ((address facetAddress, bytes4[] functionSelectors)[])",
 ]);
 
+/** Lattice's `DEFAULT_ADMIN_ROLE`, which `diamondCut` requires. */
+const ADMIN_ROLE = zeroHash;
+
 const ACTION_LABELS = { [FacetCutAction.Add]: "Add", [FacetCutAction.Replace]: "Replace" } as Record<number, string>;
 
 /** Cuts one facet into the live diamond: reads what it exports, plans Add and Replace, and sends `diamondCut`. */
@@ -33,6 +41,12 @@ export const UpgradeCard = () => {
   const { targetNetwork } = useTargetNetwork();
   const publicClient = usePublicClient({ chainId: targetNetwork.id });
   const { data: diamond } = useDeployedContractInfo({ contractName: "Diamond" });
+  const { address } = useAccount();
+  const { data: isAdmin } = useScaffoldReadContract({
+    contractName: "Diamond",
+    functionName: "hasRole",
+    args: [ADMIN_ROLE, address],
+  });
   const { writeContractAsync, isMining } = useScaffoldWriteContract({ contractName: "Diamond" });
   const names = useSelectorNames();
 
@@ -172,9 +186,14 @@ export const UpgradeCard = () => {
               </span>
             </div>
           )}
-          <button className="btn btn-primary btn-sm mt-4" onClick={cut} disabled={isMining}>
-            Cut into the diamond
-          </button>
+          <div className="flex flex-wrap items-center gap-3 mt-4">
+            <button className="btn btn-primary btn-sm" onClick={cut} disabled={isMining || isAdmin !== true}>
+              Cut into the diamond
+            </button>
+            {(!address || isAdmin === false) && (
+              <span className="text-sm text-base-content/70">Connect the admin wallet to cut.</span>
+            )}
+          </div>
         </div>
       )}
     </div>
