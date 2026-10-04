@@ -73,6 +73,13 @@ contract DeployDiamond is BaseDeploy {
     uint256 internal constant HEDERA_FACETS = 3;
     uint256 internal constant HEDERA_INITS = 3;
 
+    /// @notice Deploys the diamond from `diamond.recipe.json` on Hedera testnet or mainnet and writes
+    ///         `deployments/diamond/<chainId>.json`. When the deployer is the recipe's admin, it also registers the
+    ///         Chainlink HBAR/USD feed and makes the deployer an emergency-stop guardian, each only if the recipe
+    ///         has the facet (`ChainlinkAdapter`, `EmergencyStop`).
+    /// @dev The token is not created here: `forge script` cannot simulate HTS, so `launchSale` is a separate
+    ///      transaction. Writes no record on a dry run.
+    /// @return diamond The new diamond's address.
     function run() external returns (address diamond) {
         require(
             block.chainid == 295 || block.chainid == 296,
@@ -104,13 +111,24 @@ contract DeployDiamond is BaseDeploy {
 
     /// @notice Deploys the diamond described by `json` plus the Hedera layer, with `admin` standing for the
     ///         recipe's `{"$ref": "deployer"}`.
+    /// @param json The recipe, as text.
+    /// @param admin The address that stands for `{"$ref": "deployer"}`.
+    /// @return diamond The new diamond's address.
     function assemble(string memory json, address admin) public returns (address diamond) {
         (, FacetCut[] memory cuts, address[] memory inits, bytes[] memory calls) = build(json, admin);
         diamond = _assembleMulti(cuts, inits, calls);
     }
 
     /// @notice The facet cuts and initializer calls for the recipe's base plus the Hedera layer.
+    /// @dev Deploys the facets and initializers it names. Reverts with a message naming the fix when the recipe
+    ///      lacks `HTSAdapter` or its init, names a facet that is not compiled in, or gives a selector two owners.
+    /// @param json The recipe, as text.
+    /// @param admin The address that stands for `{"$ref": "deployer"}`.
     /// @return names The facet name behind each cut, in cut order.
+    /// @return cuts One `Add` cut per facet: the recipe's, then `TokenSale` and `StealthBuy`.
+    /// @return inits The initializers, in run order: the recipe's steps, then `TokenSaleInit` and
+    ///         `DiamondIntrospectionInit`.
+    /// @return calls The calldata for each initializer, matched by index.
     function build(string memory json, address admin)
         public
         returns (string[] memory names, FacetCut[] memory cuts, address[] memory inits, bytes[] memory calls)
@@ -150,6 +168,10 @@ contract DeployDiamond is BaseDeploy {
     }
 
     /// @notice Problems that do not stop a deploy but that the developer should hear about.
+    /// @param json The recipe, as text.
+    /// @param cuts The cuts `build` returned.
+    /// @return notes One sentence per problem: a recipe pinned to another catalog, or no facet serving
+    ///         `diamondCut`.
     function warnings(string memory json, FacetCut[] memory cuts) public view returns (string[] memory notes) {
         notes = new string[](2);
         uint256 n;

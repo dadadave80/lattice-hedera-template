@@ -22,6 +22,8 @@ import "../contracts/LatticeFacets.sol";
 /// @dev The broadcasting account must hold the diamond's `DEFAULT_ADMIN_ROLE`. A diamond deployed from the
 ///      current recipe already has all three, and this cut would revert.
 contract DeployStealthBuy is BaseDeploy {
+    /// @notice Cuts the three facets into the diamond recorded in `deployments/diamond/<chainId>.json` and adds
+    ///         them to that record. Writes nothing on a dry run.
     function run() external {
         string memory path = string.concat("deployments/diamond/", vm.toString(block.chainid), ".json");
         require(
@@ -47,6 +49,12 @@ contract DeployStealthBuy is BaseDeploy {
 
     /// @notice Deploys the three facets and their initializers, and returns the `diamondCut` arguments that add
     ///         them. Never broadcasts, so tests call it directly.
+    /// @dev The initializers run through `UpgradeMultiInit`, because the diamond's initializing window closed
+    ///      when it was created.
+    /// @return names The facet names, in cut order.
+    /// @return cuts One `Add` cut per facet.
+    /// @return init The `UpgradeMultiInit` contract, `diamondCut`'s `_init`.
+    /// @return initCalldata The `upgradeInit` call that runs `ERC6538RegistryInit` and `ERC5564AnnouncerInit`.
     function plan()
         public
         returns (string[] memory names, FacetCut[] memory cuts, address init, bytes memory initCalldata)
