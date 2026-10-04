@@ -214,7 +214,7 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 - Not audited. Lattice is pre-1.0 and unaudited too. Do not put real value behind this without a review.
 - There is no local-chain mode. HTS and the Chainlink feed exist only on Hedera, so contract tests run against mocks and the app runs against testnet.
 - A recipe can name another admin, but the deploy script also makes the deploying account admin and gives it `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE`. It needs admin to register the feed and the manager role to let the sale create the token. To hand over control, grant `DEFAULT_ADMIN_ROLE`, `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE` to the new admin, then have the deployer renounce all three after the deploy.
-- The app's upgrade card plans Add and Replace only. A function the outgoing facet serves that the new facet does not export stays routed to the old facet. Removing them is a separate Remove cut, for example from Debug Contracts or with `cast`.
+- The app's upgrade card plans Add and Replace only. A function the outgoing facet serves that the new facet does not export stays routed to the old facet, and the preview lists it under "Still served by the outgoing facet". Removing them is a separate Remove cut, for example from Debug Contracts or with `cast`.
 - The package manager is Yarn.
 
 ## Links
