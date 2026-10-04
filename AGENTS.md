@@ -133,6 +133,7 @@ UI: `HederaAddress` from `~~/components/scaffold-hbar` shows an address with its
 - Next.js: `packages/nextjs/scaffold.config.ts` (Hedera testnet and mainnet).
 - Chainlink HBAR/USD feed addresses are constants in `DeployDiamond.s.sol`.
 - Mirror node URLs, which the Inbox reads announcements from, are in `packages/nextjs/utils/stealth/announcements.ts`.
+- Mainnet: the README's "Launch on mainnet" lists every change from testnet, the deploy and seeding commands, the costs and the risks. The deploy picks the Chainlink feed and the SaucerSwap V1 addresses (`SaucerSwapV1` in `DeployDiamond.s.sol`) from the chain id. The app needs `targetNetworks` in `scaffold.config.ts` and the hard-coded `initialChain` in `components/ScaffoldHbarAppWithProviders.tsx` changed.
 
 ## Style
 

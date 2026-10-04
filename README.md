@@ -148,7 +148,7 @@ The sale is priced in USD and paid in HBAR, so the HBAR/USD rate is part of ever
 - **HTS answers with response codes, not reverts.** `22` is success. `TokenSaleLib` checks the code after every HTS call and reverts with a named error.
 - **Association.** A buyer associates with the token once, through the token's own address ([HIP-719](https://hips.hedera.com/hip/hip-719)), or automatically on its first purchase if the account has a free automatic association slot ([HIP-904](https://hips.hedera.com/hip/hip-904)), as every account created from an EVM address does. A buyer with neither gets `TokenSaleBuyerNotAssociated`.
 - **Token keys on a diamond.** A facet runs inside a `delegatecall`, so HTS only honours `delegatableContractId` keys for it. Lattice's `HTSAdapterLib` sets the admin and supply keys that way when the diamond creates the token.
-- **Oracle freshness.** `ChainlinkAdapter` rejects an answer older than the limit set when the feed was registered. Chainlink does not guarantee a heartbeat on testnet (this feed updates about hourly), so the testnet default is loose, 365 days, to keep a demo selling if the feed pauses. Mainnet defaults to 25 hours. For anything real, set `HBAR_USD_MAX_STALENESS` (seconds) to the feed's heartbeat before deploying.
+- **Oracle freshness.** `ChainlinkAdapter` rejects an answer older than the limit set when the feed was registered. Chainlink does not guarantee a heartbeat on testnet (this feed updates about hourly), so the testnet default is loose, 365 days, to keep a demo selling if the feed pauses. Mainnet defaults to 25 hours: the mainnet feed's 24-hour heartbeat plus an hour for an update that lands late. `HBAR_USD_MAX_STALENESS` (seconds) overrides either default at deploy time; see [Launch on mainnet](#launch-on-mainnet).
 - **Addresses that are not accounts yet.** HBAR sent to an EVM address with no account creates one, a hollow account ([HIP-583](https://hips.hedera.com/hip/hip-583)), with unlimited automatic token associations. Its first signed transaction completes it with the signer's key. `buyFor` creates the stealth account this way, which costs far more gas than a plain purchase, so give it an explicit gas limit.
 
 ## Private purchases
@@ -240,6 +240,153 @@ The sale page now shows the bonus and quotes 5% more. Private purchases get the 
 
 To ship your own change: copy `TokenSaleV2.sol`, change it, list its selectors in `exportSelectors()`, deploy it and cut it the same way. Two rules keep an upgrade safe: only add fields at the end of a storage struct, and never change the storage slot.
 
+## Launch on mainnet
+
+Everything above runs on Hedera testnet. The same contracts and scripts deploy to Hedera mainnet, chain 295: the deploy script picks the mainnet Chainlink feed and SaucerSwap's mainnet addresses from the chain id. The app needs a config edit, and a few screens still assume testnet (listed under [What the code does not handle yet](#what-the-code-does-not-handle-yet)). Read [Before you put real value behind it](#before-you-put-real-value-behind-it) first.
+
+### What you need
+
+- **A mainnet account with HBAR.** `yarn foundry:account:generate` creates a new key in an encrypted keystore, and `yarn foundry:account:import` puts an existing key in one. Mainnet has no faucet: send HBAR to the keystore's address from an exchange or another wallet. HBAR sent to an EVM address with no account creates the account ([HIP-583](https://hips.hedera.com/hip/hip-583)). The account that deploys becomes the diamond's admin, so treat this key as the key to everything the diamond holds.
+- **Foundry 1.7.1** (`foundryup --install v1.7.1`). Foundry 1.8 cannot run `forge script` against Hedera's relay yet.
+- **The budget below.** About 100 HBAR covers the deploy and the sale. A SaucerSwap pool costs about 490 HBAR more, plus the liquidity you put in it.
+- **A passing `yarn foundry:test`** on the exact code you deploy.
+
+### What changes from testnet
+
+| | Testnet | Mainnet | Where it is set |
+| --- | --- | --- | --- |
+| Network flag | `--network hedera_testnet` | `--network hedera_mainnet` | `packages/foundry/foundry.toml`, `packages/foundry/Makefile` |
+| Chain id | 296 | 295 | |
+| JSON-RPC relay | `https://testnet.hashio.io/api` | `https://mainnet.hashio.io/api` | `foundry.toml`; for the app, `rpcOverrides` in `scaffold.config.ts` or `NEXT_PUBLIC_HEDERA_MAINNET_RPC_URL` |
+| Chainlink HBAR/USD feed | `0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a` | [`0xAF685FB45C12b92b5054ccb9313e135525F9b5d5`](https://hashscan.io/mainnet/contract/0xAF685FB45C12b92b5054ccb9313e135525F9b5d5) | `HBAR_USD_FEED_MAINNET` in `DeployDiamond.s.sol`, chosen by chain id |
+| Default feed staleness limit | 365 days | 25 hours | `HBAR_USD_MAX_STALENESS` in `packages/foundry/.env` |
+| SaucerSwap V1 router (RouterV3) | `0.0.19264` | `0.0.3045981` (`0x00000000000000000000000000000000002e7a5d`) | `SaucerSwapV1` in `DeployDiamond.s.sol`, passed to `SaucerSwapPoolInit` |
+| SaucerSwap V1 factory | `0.0.9959` | `0.0.1062784` (`0x0000000000000000000000000000000000103780`) | same |
+| WHBAR token the pool pairs with | `0.0.15058` | `0.0.1456986` (`0x0000000000000000000000000000000000163b5a`) | same |
+| SaucerSwap pool creation fee | $2 | $50 | SaucerSwap's factory (`pairCreateFee()`); the diamond reads it live |
+| Mirror node | `https://testnet.mirrornode.hedera.com` | `https://mainnet.mirrornode.hedera.com` | the Inbox: `mirrorNodeUrl` in `utils/stealth/announcements.ts`, by chain id; account IDs: `HEDERA_MIRROR_MAINNET_URL` in `packages/nextjs/.env` |
+| Explorer | `https://hashscan.io/testnet` | `https://hashscan.io/mainnet` | the app follows the connected chain |
+| Verifying one contract | `yarn foundry:verify:testnet` | `yarn foundry:verify:mainnet` | `packages/foundry/package.json` |
+| Faucet | [Hedera Portal](https://portal.hedera.com/faucet) | none | |
+| Lattice Studio's shared release | deployed | not deployed | the Studio card on the Diamond page |
+
+The SaucerSwap addresses are SaucerSwap's current ones ([contracts](https://docs.saucerswap.finance/developers/contracts)). Its older routers and its old WHBAR are deprecated; do not swap them in.
+
+### Step by step
+
+1. **Choose the feed's staleness limit.** The mainnet HBAR/USD feed updates at least every 86,400 seconds (24 hours), and sooner when the price moves 0.5% ([Chainlink's feed list](https://reference-data-directory.vercel.app/feeds-hedera-mainnet.json)). The mainnet default, 25 hours, is that heartbeat plus an hour for an update that lands late. Keep it. A limit of exactly 86,400 stops every purchase whenever an update is a few seconds late, and a looser one lets the sale price on an old rate. To set it explicitly, put `HBAR_USD_MAX_STALENESS=90000` in `packages/foundry/.env` before deploying; the deploy reads it once, when it registers the feed.
+
+2. **Deploy the diamond.**
+
+   ```bash
+   yarn foundry:deploy --network hedera_mainnet
+   ```
+
+   This runs the same steps as on testnet (see [Deploy your own diamond](#deploy-your-own-diamond)): the recipe's Lattice facets, `TokenSale`, `StealthBuy` and `SaucerSwapPool`, the diamond with `SaucerSwapPoolInit` set to the mainnet router, factory and WHBAR, the mainnet feed registered, your account made a guardian, `deployedContracts.ts` rewritten, and every new contract verified on Sourcify for chain 295. A first deployment sends up to 25 transactions. Lattice Studio's shared release is not on mainnet, and the deploy does not need it: it deploys its own `LatticeRegistry` and `LatticeFactory`. A contract that fails to verify is printed with the command to retry it:
+
+   ```bash
+   yarn foundry:verify:mainnet <address> <file>:<Contract>
+   ```
+
+   The record goes to `packages/foundry/deployments/diamond/295.json`, and `deployedContracts.ts` gets a `295` entry. That file is rebuilt from the records on your machine only, so in a checkout that never deployed to testnet, the testnet `Diamond` entry is dropped. For a mainnet-only app that is what you want.
+
+3. **Launch the sale.** The same call as on testnet, against the mainnet relay:
+
+   ```bash
+   cast send <your diamond> \
+     "launchSale(string,string,string,int32,int64,uint256)" \
+     "My Token" MTK "" 8 100000000000000 50000000000000000 \
+     --value 20ether --gas-limit 1000000 --legacy \
+     --rpc-url https://mainnet.hashio.io/api --account <your keystore>
+   ```
+
+   Creating an HTS token costs $1 ([fees](https://docs.hedera.com/hedera/networks/mainnet/fees)), about 10 HBAR today, so 20 HBAR covers it with room for the rate to move. Hedera keeps only the fee, and the rest stays in the diamond. Keep the token's name short if you will open a SaucerSwap pool: the pool's LP token is named after both tokens, and HTS caps a name at 100 characters.
+
+4. **Point the app at mainnet.** In `packages/nextjs/scaffold.config.ts`, list mainnet alone:
+
+   ```ts
+   const targetNetworks = [chains.hedera] as const satisfies readonly [chains.Chain, ...chains.Chain[]];
+   ```
+
+   With no testnet in the list, the burner wallet is gone from the connect menu. Also change `initialChain={hederaTestnet}` in `components/ScaffoldHbarAppWithProviders.tsx` to `hedera`; it is hard-coded. In `packages/nextjs/.env`, set your own `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`, and optionally `NEXT_PUBLIC_HEDERA_MAINNET_RPC_URL` (defaults to Hashio) and `HEDERA_MIRROR_MAINNET_URL` (defaults to Hedera's public mirror node). The Inbox on the Private page reads announcements from `https://mainnet.mirrornode.hedera.com` on chain 295; that URL has no override. Then `yarn next:build`.
+
+5. **Seed a SaucerSwap pool (optional).** `seedPool` puts the diamond's tokens and HBAR into the token/WHBAR pool on SaucerSwap V1, creating the pool when it does not exist, and the diamond keeps the LP tokens. The app has no screen for it yet, and Debug Contracts cannot set the gas limit it needs, so send it with `cast`.
+
+   ```bash
+   RPC=https://mainnet.hashio.io/api
+   DIAMOND=<your diamond>
+
+   # The creation fee in tinybars is the last field.
+   cast call $DIAMOND "poolInfo()((address,address,address,address,address,uint256,uint256,uint256,uint256,uint256))" --rpc-url $RPC
+
+   # Token units the sale gives for 1,000 HBAR (100,000,000,000 tinybars). Opening the pool at this ratio
+   # opens it at the price buyers pay, the TokenSaleV2 bonus included.
+   cast call $DIAMOND "quote(uint256)(int64)" 100000000000 --rpc-url $RPC
+
+   # What the diamond already holds, in weibars (1 HBAR = 1e18).
+   cast balance $DIAMOND --rpc-url $RPC
+   ```
+
+   Then send it from the admin account:
+
+   ```bash
+   cast send $DIAMOND \
+     "seedPool(int64,uint256,int64,uint256,uint256,uint256)" \
+     <tokens> 100000000000 <99% of tokens> 99000000000 <105% of the fee> $(( $(date +%s) + 600 )) \
+     --value 1500ether --gas-limit 12000000 --legacy \
+     --rpc-url $RPC --account <your keystore>
+   ```
+
+   - The arguments are the tokens, the tinybars, their two minimums, the most the creation fee may cost, and a deadline in Unix seconds. All HBAR amounts are tinybars; `--value` is weibars, so `1500ether` sends 1,500 HBAR.
+   - The diamond pays `tinybars` plus the creation fee from its balance, sale proceeds included, and `--value` adds to that balance first. Send what the balance lacks. The router gets exactly `tinybars` plus the fee; anything over stays in the diamond, and `withdrawProceeds` takes it out.
+   - **Set both minimums close to the amounts, about 99%, even when no pool exists.** Anyone can create the pool first, at any price. The call then adds to that pool at its price, and only the minimums stop it. Zero minimums revert `SaucerSwapPoolInvalidAmount`.
+   - **Give the creation fee a margin**, about 105% of what `poolInfo` showed. SaucerSwap sets the fee in USD ($50 now, [pool creation fee](https://docs.saucerswap.finance/developers/v1/liquidity/pool-creation-fee)) and the network converts it at the exchange rate when the transaction runs, which moves. The call pays only the fee itself; above your limit it reverts `SaucerSwapPoolCreationFeeTooHigh`.
+   - **Give it 12,000,000 gas.** Creating a SaucerSwap pool used about 7.5 million gas on mainnet. The relay's estimate is not reliable for HTS calls, and it refuses a limit above 15 million. Hedera charges the gas used, but the account must hold the limit's worth, about 10 HBAR, when it sends.
+   - On a new pool every tinybar sets the opening price: the pool opens at exactly `tinybars` to `tokens`.
+
+   `PoolSeeded` names the pair and the LP token, and `poolInfo()` now returns the reserves and the diamond's LP balance. The pair is a contract with an EVM address; its Hedera ID, from `https://mainnet.mirrornode.hedera.com/api/v1/contracts/<pair>`, gives its page at `https://www.saucerswap.finance/pool/<pair id>`. To move LP tokens out of the diamond, the admin calls `transferLiquidity(address to, int64 amount)`; `to` must already be associated with the LP token.
+
+6. **Hand over the keys.** Grant `DEFAULT_ADMIN_ROLE` (`0x00…00`) and `HTS_MANAGER_ROLE` (`cast keccak HTS_MANAGER_ROLE`) to the account that will hold them with `grantRole`, add guardians you can reach quickly with `addGuardian`, then remove the deployer with `removeGuardian` and `renounceRole`.
+
+### Costs
+
+Hedera's fees are set in USD and are the same on testnet and mainnet. On 2026-10-05 the network's rate was about $0.103 per HBAR, and gas cost 82 tinybars on mainnet and 86 on testnet, so the testnet figures in this README carry over in HBAR.
+
+| Step | Cost | Source |
+| --- | --- | --- |
+| Deploying the diamond, up to 25 transactions | Up to about 60 HBAR, as on testnet | Measured on testnet |
+| `launchSale` | $1 for the token, about 10 HBAR, plus gas. Send 20 HBAR; the rest stays in the diamond | [Hedera fees](https://docs.hedera.com/hedera/networks/mainnet/fees) |
+| `seedPool` on a new pool | $50 creation fee, 48,482,497,818 tinybars (about 485 HBAR) at that day's rate, plus about 7.5 million gas (about 6 HBAR), plus the liquidity | SaucerSwap's factory, read on chain; [pool creation fee](https://docs.saucerswap.finance/developers/v1/liquidity/pool-creation-fee) |
+| `seedPool` on an existing pool | Gas only: adding to a pool directly used under 1 million gas on testnet | Measured on testnet |
+| A purchase with `buy` | About 800,000 gas, under 1 HBAR, paid by the buyer | Measured on testnet |
+| A private purchase with `buyFor` | 1,433,536 gas, about 1.2 HBAR, plus the stipend, paid by the payer | Measured on testnet |
+| Verifying on Sourcify | Free | |
+
+### Before you put real value behind it
+
+- **Nothing here is audited.** This template is not, Lattice is pre-1.0 and not audited, and Lattice Studio's Hedera catalog is a provisional build from a Lattice commit, not a release. SaucerSwap's contracts have been audited ([its audits](https://docs.saucerswap.finance/developers/security/audits)); how this diamond calls them has not.
+- **The admin key controls everything.** `DEFAULT_ADMIN_ROLE` can cut any code into the diamond, withdraw all of its HBAR, change the price, seed the pool and move the LP tokens. The diamond holds the token's admin and supply keys, so the admin also controls the token's supply. A keystore on a laptop is a hot key: move the role to an account you keep offline before the sale holds real value, and test that hand-over on testnet first.
+- **The emergency stop is a pause, not an exit.** Any guardian halts `buy`, `buyFor` and `seedPool` with `emergencyStop(reason)`, and only an admin resumes with `emergencyResume()`. `withdrawProceeds` and `transferLiquidity` still work while it is on. Until another guardian is added, the deployer is the only one.
+- **A stale feed stops the sale.** When the feed misses its heartbeat, purchases revert `ChainlinkStaleData`. Do not loosen the limit to get past it: stop the sale and resume once the feed updates.
+- **The pool is permissionless.** Anyone can create the token/WHBAR pool before you, at any price; the minimums are your only protection. The sale keeps selling at the oracle price after the pool opens, so the pool's price cannot stay above the sale's: when it does, anyone buys from the sale and sells into the pool, and the diamond's LP position takes that selling. `emergencyStop` cannot end the sale and keep the pool, because it blocks both; ending the sale for good needs a new `TokenSale` facet. The diamond's liquidity carries the usual AMM risk of losing value against simply holding the two tokens.
+- **SaucerSwap sets the pool fee.** It is $50 today, its owner can change it, and its HBAR cost moves with the exchange rate.
+- **Lattice Studio's release is not on mainnet.** The Studio card on the Diamond page shows each shared facet as having no code there, and Studio deploys to Hedera Testnet only. Your diamond does not depend on it.
+- **Private purchases hide the recipient only.** The payer, the amount and the time are public, and a new diamond has few registered recipients to hide among. The app's server sees the stealth addresses a browser asks about. Read the [privacy model](#privacy-model) before telling anyone their purchase is private.
+- **Deploy with Foundry 1.7.1.** A run with 1.8 stops before sending anything.
+
+### What the code does not handle yet
+
+These are known gaps. Each is small, and none of them changes the contracts.
+
+- `components/ScaffoldHbarAppWithProviders.tsx` hard-codes `initialChain={hederaTestnet}`. Step 4 changes it by hand.
+- `components/diamond/DiamondNotDeployed.tsx` tells the user to switch to Hedera Testnet and to deploy with `--network hedera_testnet`, and `components/private/PrivatePurchases.tsx` prints `--network hedera_testnet` in its `DeployStealthBuy` command.
+- The faucet link, which is testnet only, still shows on mainnet in the Sale card (with the text "Need testnet HBAR?"), the Buy privately card and the Receive card. Only the footer hides it on mainnet.
+- The app has no screen for the SaucerSwap pool: seeding it, reading `poolInfo` or moving LP tokens is done with `cast`.
+- `mirrorNodeUrl` in `utils/stealth/announcements.ts` has no environment override, unlike the account route.
+- `scripts-js/generateTsAbis.js` rebuilds `deployedContracts.ts` from the deploy records on the machine that ran the deploy, so an app that should serve both networks must be deployed to both from one checkout.
+- The stop messages in `DeployDiamond.s.sol` and `DeploySaucerSwapPool.s.sol` suggest `--network hedera_testnet` even on mainnet.
+- Smaller fallbacks default to testnet when no chain is known: `getBlockExplorerAddressLink` in `utils/scaffold-hbar/networks.ts`, `useHederaAccountId`, and the `/api/hedera/account` route. Every caller in the app passes the chain, so they do not show.
+
 ## Customize in Lattice Studio
 
 The Lattice part of the diamond is not written in Solidity. It is this list in `packages/foundry/diamond.recipe.json`:
@@ -318,7 +465,8 @@ Before you deploy it, check:
 | `yarn foundry:deploy --network hedera_testnet` | Deploys the diamond from the recipe, regenerates the frontend's contract file, then verifies its contracts on Sourcify. |
 | `yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet` | Deploys the upgrade facet and verifies it. |
 | `yarn foundry:deploy --file DeployStealthBuy.s.sol --network hedera_testnet` | Adds private purchases to a diamond deployed before them, in one cut. Run it from the diamond's admin account. |
-| `yarn foundry:verify:testnet <address> <file>:<Contract>` | Verifies or re-verifies one contract's source on Sourcify by hand. The deploy already does this for each contract it creates. |
+| `yarn foundry:deploy --network hedera_mainnet` | The same deploy on Hedera mainnet. Read [Launch on mainnet](#launch-on-mainnet) first. |
+| `yarn foundry:verify:testnet <address> <file>:<Contract>` | Verifies or re-verifies one contract's source on Sourcify by hand. The deploy already does this for each contract it creates. `yarn foundry:verify:mainnet` does the same on mainnet. |
 | `yarn diamond:studio` | Prints the Lattice Studio link for the current recipe. |
 | `yarn foundry:account:generate` | Creates a deployer keystore. |
 | `yarn lint` | Lints the frontend and checks Solidity and script formatting. |
@@ -340,7 +488,7 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 | `HTSCallFailed` on `launchSale` | The HBAR sent did not cover the creation fee. Send more with `--value`. |
 | `INSUFFICIENT_GAS` on `buyFor` | `buyFor` creates the stealth account and associates it with the token, which takes far more gas than a plain purchase. The **Private** page sets 2,000,000; it used 1,433,536 on testnet. From a script or another app, set the limit yourself with `--gas-limit 2000000`. Hedera charges only the gas used, but the payer must hold the limit's worth when sending. |
 | "This diamond does not sell privately yet" on the Private page | No facet serves `buyFor`: the diamond was deployed before private purchases. Its admin runs `yarn foundry:deploy --file DeployStealthBuy.s.sol --network hedera_testnet`. |
-| "No diamond on Hedera Mainnet" in the app | The wallet is on a network this project has no diamond on. Switch to Hedera Testnet. |
+| "No diamond on Hedera Mainnet" in the app | The wallet is on a network this project has no diamond on. Switch to Hedera Testnet, or deploy to mainnet as described in [Launch on mainnet](#launch-on-mainnet). |
 
 ## Limits
 
@@ -355,7 +503,7 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 - The Inbox reads every announcement the diamond has made since it was created, one week of history per mirror node search, so a scan takes longer as the diamond ages.
 - The app's upgrade card plans Add and Replace only. A function the outgoing facet serves that the new facet does not export stays routed to the old facet, and the preview lists it under "Still served by the outgoing facet". Removing them is a separate Remove cut, for example from Debug Contracts or with `cast`.
 - The package manager is Yarn.
-- Not built yet: SaucerSwap liquidity for the sale's proceeds, and the Hedera Schedule Service (`HSSAdapter` is in Lattice) for a scheduled close or vesting.
+- Not built yet: a screen in the app for the SaucerSwap pool (seed it with `cast`, as [Launch on mainnet](#launch-on-mainnet) shows), and the Hedera Schedule Service (`HSSAdapter` is in Lattice) for a scheduled close or vesting.
 
 ## Links
 

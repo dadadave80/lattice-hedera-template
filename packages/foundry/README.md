@@ -45,6 +45,8 @@ yarn deploy --file DeployStealthBuy.s.sol --network hedera_testnet     # private
 
 From the repository root the same commands are `yarn foundry:deploy ...`.
 
+On mainnet, pass `--network hedera_mainnet`. The scripts pick the mainnet Chainlink feed and SaucerSwap V1 addresses from the chain id, and `yarn verify:mainnet` verifies one contract by hand. The [root README](../../README.md#launch-on-mainnet) walks through a mainnet launch.
+
 - Use Foundry 1.7.1 (`foundryup --install v1.7.1`). Foundry 1.8 cannot run `forge script` against Hedera's relay yet.
 - The deployer must be an account that exists on Hedera: generate a keystore with `yarn account:generate` and fund its address from the [faucet](https://portal.hedera.com/faucet).
 - The Makefile passes `--slow --legacy`: one transaction at a time, with legacy gas pricing, which is what the relay expects.
@@ -67,5 +69,5 @@ A deploy writes three things:
 
 | Variable | Use |
 | --- | --- |
-| `HBAR_USD_MAX_STALENESS` | Seconds the diamond accepts between Chainlink updates. Read at deploy time. Defaults to 365 days on testnet, where Chainlink does not guarantee a heartbeat, and 25 hours on mainnet. For anything real, set it to the feed's heartbeat. |
+| `HBAR_USD_MAX_STALENESS` | Seconds the diamond accepts between Chainlink updates. Read at deploy time. Defaults to 365 days on testnet, where Chainlink does not guarantee a heartbeat, and 25 hours on mainnet: the mainnet feed's 24-hour heartbeat plus an hour for a late update. |
 | `LOCALHOST_KEYSTORE_ACCOUNT`, `HEDERA_RPC_URL`, `ALCHEMY_API_KEY` | Scaffold-HBAR defaults. This template does not need them changed. |
