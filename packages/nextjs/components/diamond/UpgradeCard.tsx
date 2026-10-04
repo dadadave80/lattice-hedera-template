@@ -76,7 +76,7 @@ export const UpgradeCard = () => {
       const hash = await writeContractAsync({ functionName: "diamondCut", args: [plan.cuts, zeroAddress, "0x"] });
       if (hash) setPlan(undefined);
     } catch {
-      // The transactor has already shown the error.
+      // useScaffoldWriteContract has already shown the error: a failed simulation, a rejection or a revert.
     }
   };
 
@@ -143,7 +143,7 @@ export const UpgradeCard = () => {
                 <span className="font-semibold">{ACTION_LABELS[planned.action]}</span>{" "}
                 {planned.action === FacetCutAction.Replace ? (
                   <ul className="m-0 mt-1 p-0 list-none flex flex-col gap-2">
-                    {outgoingFacets([planned], plan.facets).map(from => facetRow(from, "now served by"))}
+                    {outgoingFacets([planned], plan.facets).map(from => facetRow(from, "moving from"))}
                   </ul>
                 ) : (
                   <span className="font-mono text-xs">{nameList(planned.functionSelectors)}</span>

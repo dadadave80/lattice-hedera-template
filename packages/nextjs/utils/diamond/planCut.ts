@@ -80,7 +80,7 @@ export function leftOnOutgoingFacets(cuts: FacetCut[], facets: readonly LoupeFac
 
 /**
  * The planned selectors that are not part of the sale: any the diamond routes to a facet other than the one that
- * serves `buy(int64)`, and an Add of `diamondCut`. A facet that takes these over takes over the diamond.
+ * serves `buy(int64)`, and an Add of `diamondCut`.
  */
 export function selectorsOutsideSale(cuts: FacetCut[], facets: readonly LoupeFacet[]): Hex[] {
   const saleFacet = facets.find(facet => facet.functionSelectors.includes(BUY_SELECTOR))?.facetAddress;
