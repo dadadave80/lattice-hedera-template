@@ -33,12 +33,12 @@ contract TokenSale is ITokenSale {
 
     /// @inheritdoc ITokenSale
     function buy(int64 minTokens) external payable virtual returns (int64 tokens) {
-        return TokenSaleLib.buy(minTokens);
+        return TokenSaleLib.buy(minTokens, _bonusBps());
     }
 
     /// @inheritdoc ITokenSale
     function quote(uint256 tinybars) external view virtual returns (int64 tokens) {
-        return TokenSaleLib.quote(tinybars);
+        return TokenSaleLib.quote(tinybars, _bonusBps());
     }
 
     /// @inheritdoc ITokenSale
@@ -50,6 +50,11 @@ contract TokenSale is ITokenSale {
     {
         TokenSaleStorage storage $ = TokenSaleLib.tokenSaleStorage();
         return ($.token, $.decimals, $.priceUsd, $.feedKey, $.sold, $.raised);
+    }
+
+    /// @dev Bonus applied to every quote and purchase, in basis points. An upgraded facet overrides it.
+    function _bonusBps() internal view virtual returns (uint256) {
+        return 0;
     }
 
     /// @notice ERC-8153: the selectors this facet adds to a diamond, 4 bytes each.

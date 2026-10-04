@@ -15,6 +15,9 @@ bytes32 constant TOKEN_SALE_STORAGE_SLOT = 0x6e569de6c6a1948b3edf921eb24b1102436
 /// @dev Tinybars in one HBAR.
 uint256 constant TINYBARS_PER_HBAR = 1e8;
 
+/// @dev Basis points in 100%.
+uint256 constant BPS = 10_000;
+
 /// @dev The largest amount an HTS `int64` can carry.
 uint256 constant MAX_TOKEN_UNITS = 9_223_372_036_854_775_807;
 
@@ -87,11 +90,12 @@ library TokenSaleLib {
         if (!ok) revert ITokenSale.TokenSaleWithdrawFailed();
     }
 
-    function buy(int64 minTokens) internal returns (int64 tokens) {
+    /// @param bonusBps Extra tokens on top of the quote, in basis points. The facet decides it.
+    function buy(int64 minTokens, uint256 bonusBps) internal returns (int64 tokens) {
         EmergencyStopLib.checkNotStopped();
         TokenSaleStorage storage $ = tokenSaleStorage();
         uint256 hbarUsd = _hbarUsd($);
-        tokens = _tokensFor($, msg.value, hbarUsd);
+        tokens = _tokensFor($, msg.value, hbarUsd, bonusBps);
         if (tokens < minTokens) revert ITokenSale.TokenSaleSlippage(tokens, minTokens);
 
         $.sold += tokens;
@@ -100,9 +104,9 @@ library TokenSaleLib {
         _transferFromTreasury($.token, msg.sender, tokens);
     }
 
-    function quote(uint256 tinybars) internal view returns (int64 tokens) {
+    function quote(uint256 tinybars, uint256 bonusBps) internal view returns (int64 tokens) {
         TokenSaleStorage storage $ = tokenSaleStorage();
-        return _tokensFor($, tinybars, _hbarUsd($));
+        return _tokensFor($, tinybars, _hbarUsd($), bonusBps);
     }
 
     /// @dev USD per HBAR, 18 decimals, read through the diamond's own `latestAnswer(bytes32)` selector rather
@@ -116,13 +120,17 @@ library TokenSaleLib {
         return uint256(answer);
     }
 
-    /// @dev units = tinybars * (USD per HBAR) * 10^decimals / (tinybars per HBAR * USD per token).
-    ///      One division, so nothing is rounded away early. `decimals` is 0..18 and the result is
-    ///      range-checked, which is what makes the casts safe.
-    function _tokensFor(TokenSaleStorage storage $, uint256 tinybars, uint256 hbarUsd) private view returns (int64) {
+    /// @dev units = tinybars * (USD per HBAR) * 10^decimals * (1 + bonus) / (tinybars per HBAR * USD per token).
+    ///      One division, so nothing is rounded away before the bonus is applied. `decimals` is 0..18 and the
+    ///      result is range-checked, which is what makes the casts safe.
+    function _tokensFor(TokenSaleStorage storage $, uint256 tinybars, uint256 hbarUsd, uint256 bonusBps)
+        private
+        view
+        returns (int64)
+    {
         // forge-lint: disable-next-line(unsafe-typecast)
         uint256 unit = 10 ** uint256(uint32($.decimals));
-        uint256 units = (tinybars * hbarUsd * unit) / (TINYBARS_PER_HBAR * $.priceUsd);
+        uint256 units = (tinybars * hbarUsd * unit * (BPS + bonusBps)) / (TINYBARS_PER_HBAR * $.priceUsd * BPS);
         if (units == 0 || units > MAX_TOKEN_UNITS) revert ITokenSale.TokenSaleInvalidAmount();
         // forge-lint: disable-next-line(unsafe-typecast)
         return int64(uint64(units));
