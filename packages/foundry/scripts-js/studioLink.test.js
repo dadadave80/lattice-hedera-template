@@ -28,10 +28,10 @@ test("the link carries the recipe without its $schema", () => {
   assert.deepEqual(decode(studioLink(recipe)), expected);
 });
 
-test("the link opens on the hosted Studio", () => {
+test("the link opens on Studio's Hedera build", () => {
   assert.ok(
     studioLink(recipe).startsWith(
-      "https://lattice-studio-topaz.vercel.app/#s=1."
+      "https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/#s=1."
     )
   );
 });

@@ -3,7 +3,8 @@ import { join, dirname } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { deflateRawSync } from "zlib";
 
-const STUDIO_URL = "https://lattice-studio-topaz.vercel.app/";
+const STUDIO_URL =
+  "https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/";
 
 /**
  * The "Open in Lattice Studio" link for a recipe. Studio reads a recipe from the URL fragment:
