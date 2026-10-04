@@ -12,6 +12,14 @@ import { useNetworkColor } from "~~/hooks/scaffold-hbar";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar/useTargetNetwork";
 import { getBlockExplorerAddressLink } from "~~/utils/scaffold-hbar";
 
+// Balance's own text color is white, which disappears on the light theme's header.
+const BALANCE_STYLE = {
+  minHeight: "0",
+  height: "auto",
+  fontSize: "0.8em",
+  color: "var(--color-base-content)",
+};
+
 /**
  * Custom Wagmi Connect Button (watch balance + custom design)
  */
@@ -45,14 +53,7 @@ export const RainbowKitCustomConnectButton = () => {
               return (
                 <>
                   <div className="flex flex-col items-center mr-2">
-                    <Balance
-                      address={account.address as Address}
-                      style={{
-                        minHeight: "0",
-                        height: "auto",
-                        fontSize: "0.8em",
-                      }}
-                    />
+                    <Balance address={account.address as Address} style={BALANCE_STYLE} />
                     <span className="text-xs" style={{ color: networkColor }}>
                       {chain.name}
                     </span>

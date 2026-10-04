@@ -32,6 +32,8 @@
     dark --prefersdark;
 }
 
+/* Light warning and error are dark enough to read as text on white (about 5:1), and their white content colors keep
+   solid alerts readable. */
 @plugin "daisyui/theme" {
   name: "light";
 
@@ -49,8 +51,10 @@
   --color-base-content: #11151d;
   --color-info: #2d84eb;
   --color-success: #34eeb6;
-  --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-warning: #b45309;
+  --color-warning-content: #ffffff;
+  --color-error: #c2410c;
+  --color-error-content: #ffffff;
 
   --radius-field: 9999rem;
   --radius-box: 1rem;
