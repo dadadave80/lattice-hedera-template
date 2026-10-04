@@ -1852,6 +1852,613 @@ const deployedContracts = {
       inheritedFunctions: {},
       deployedOnBlock: 41335269,
     },
+    TokenSaleV2: {
+      address: "0x8932beed35e4117fba050dea2e585b8559ada738",
+      abi: [
+        {
+          type: "function",
+          name: "bonusBps",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "buy",
+          inputs: [
+            {
+              name: "minTokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "exportSelectors",
+          inputs: [],
+          outputs: [
+            {
+              name: "selectors",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "launchSale",
+          inputs: [
+            {
+              name: "name",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "symbol",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "memo",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "decimals",
+              type: "int32",
+              internalType: "int32",
+            },
+            {
+              name: "supply",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "priceUsd",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "quote",
+          inputs: [
+            {
+              name: "tinybars",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "saleInfo",
+          inputs: [],
+          outputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "decimals",
+              type: "int32",
+              internalType: "int32",
+            },
+            {
+              name: "priceUsd",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "feedKey",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "sold",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "raised",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "setSalePrice",
+          inputs: [
+            {
+              name: "priceUsd",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "withdrawProceeds",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address payable",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "event",
+          name: "HTSTokenCreated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "fungible",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "ProceedsWithdrawn",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "SaleLaunched",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "decimals",
+              type: "int32",
+              indexed: false,
+              internalType: "int32",
+            },
+            {
+              name: "supply",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "priceUsd",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "SalePriceSet",
+          inputs: [
+            {
+              name: "priceUsd",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TokensPurchased",
+          inputs: [
+            {
+              name: "buyer",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "tokens",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "hbarUsd",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "EmergencyStopActive",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "HTSAccountFrozen",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSAccountIsTreasury",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSAllowanceExceeded",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "owner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSCallFailed",
+          inputs: [
+            {
+              name: "selector",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSInsufficientBalance",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSInsufficientGas",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "HTSInvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "HTSKeyNotActive",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSKycNotGranted",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSMaxSupplyReached",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSNonZeroBalance",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSNotAToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenAlreadyAssociated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenNoSupplyKey",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenNotAssociated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenPaused",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleAlreadyLaunched",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleBuyerNotAssociated",
+          inputs: [
+            {
+              name: "buyer",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleInvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "TokenSaleInvalidDecimals",
+          inputs: [
+            {
+              name: "decimals",
+              type: "int32",
+              internalType: "int32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleInvalidPrice",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "TokenSaleNotLaunched",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "TokenSaleSlippage",
+          inputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "minTokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleTransferFailed",
+          inputs: [
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleWithdrawFailed",
+          inputs: [],
+        },
+      ],
+      inheritedFunctions: {},
+      deployedOnBlock: 41335815,
+    },
   },
 } as const;
 
