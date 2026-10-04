@@ -11,6 +11,31 @@ pragma solidity ^0.8.30;
 ///      Every HBAR amount in this interface is tinybars. USD amounts are 18-decimal fixed point.
 ///      Token amounts are in the token's smallest unit and are `int64`, as HTS defines them.
 interface ITokenSale {
+    /// @notice Emitted once, when the sale token is created and its price set.
+    event SaleLaunched(address indexed token, int32 decimals, int64 supply, uint256 priceUsd);
+
+    /// @notice `launchSale` was called on a diamond that already sells `token`.
+    error TokenSaleAlreadyLaunched(address token);
+    /// @notice A price of zero, or an oracle answer that is not positive.
+    error TokenSaleInvalidPrice();
+    /// @notice Token decimals outside 0..18.
+    error TokenSaleInvalidDecimals(int32 decimals);
+
+    /// @notice Creates the sale token through HTS, with the diamond as treasury, and sets its price.
+    /// @dev Caller must hold `DEFAULT_ADMIN_ROLE` and `HTS_MANAGER_ROLE`. `msg.value` pays the HTS creation
+    ///      fee. Hedera deducts only the fee (HIP-358); the rest stays in the diamond.
+    /// @param decimals Token decimals, 0..18.
+    /// @param supply Initial supply in the token's smallest unit, minted to the diamond.
+    /// @param priceUsd USD per whole token, 18 decimals.
+    function launchSale(
+        string calldata name,
+        string calldata symbol,
+        string calldata memo,
+        int32 decimals,
+        int64 supply,
+        uint256 priceUsd
+    ) external payable returns (address token);
+
     /// @notice The sale's configuration and running totals.
     /// @return token The HTS token on sale, or the zero address before launch.
     /// @return decimals The token's decimals.

@@ -10,6 +10,18 @@ import { TokenSaleLib, TokenSaleStorage } from "./libraries/TokenSaleLib.sol";
 ///      `HTSAdapter`, `AccessControl` and a price-feed facet such as `ChainlinkAdapter`.
 contract TokenSale is ITokenSale {
     /// @inheritdoc ITokenSale
+    function launchSale(
+        string calldata name,
+        string calldata symbol,
+        string calldata memo,
+        int32 decimals,
+        int64 supply,
+        uint256 priceUsd
+    ) external payable virtual returns (address token) {
+        return TokenSaleLib.launchSale(name, symbol, memo, decimals, supply, priceUsd);
+    }
+
+    /// @inheritdoc ITokenSale
     function saleInfo()
         external
         view
@@ -22,8 +34,9 @@ contract TokenSale is ITokenSale {
 
     /// @notice ERC-8153: the selectors this facet adds to a diamond, 4 bytes each.
     /// @dev Never includes `exportSelectors()` itself. `test/TokenSale.t.sol` checks this list against the ABI.
+    ///      `launchSale(string,string,string,int32,int64,uint256)` 0xdf1d74ae
     ///      `saleInfo()` 0x8e3695b8
     function exportSelectors() external pure virtual returns (bytes memory selectors) {
-        selectors = hex"8e3695b8";
+        selectors = hex"df1d74ae8e3695b8";
     }
 }

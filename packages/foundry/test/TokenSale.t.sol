@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
+import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
+import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { TOKEN_SALE_STORAGE_SLOT } from "../contracts/libraries/TokenSaleLib.sol";
 import { SaleTestBase } from "./SaleTestBase.sol";
 
@@ -13,6 +16,49 @@ contract TokenSaleTest is SaleTestBase {
         assertEq(feedKey, HBAR_USD, "TokenSaleInit stored the feed key");
         assertEq(sold, 0);
         assertEq(raised, 0);
+    }
+
+    function test_launchSale_createsATokenTheDiamondTreasuries() public {
+        address token = _launch();
+
+        assertEq(IHTSAdapter(diamond).createdTokens()[0], token, "created through HTSAdapter's storage");
+        assertEq(hts.treasury(token), diamond, "diamond is the treasury");
+        assertEq(hts.balanceOf(token, diamond), SUPPLY, "supply minted to the diamond");
+
+        (address saleToken, int32 decimals, uint256 priceUsd, bytes32 feedKey, int64 sold, uint256 raised) =
+            sale.saleInfo();
+        assertEq(saleToken, token);
+        assertEq(decimals, 8);
+        assertEq(priceUsd, PRICE_USD);
+        assertEq(feedKey, HBAR_USD);
+        assertEq(sold, 0);
+        assertEq(raised, 0);
+    }
+
+    function test_launchSale_revertsForAnyoneButTheAdmin() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, buyer, bytes32(0))
+        );
+        vm.prank(buyer);
+        sale.launchSale{ value: CREATION_FEE }("Lattice Sale Token", "LST", "", 8, SUPPLY, PRICE_USD);
+    }
+
+    function test_launchSale_revertsASecondTime() public {
+        address token = _launch();
+
+        vm.expectRevert(abi.encodeWithSelector(ITokenSale.TokenSaleAlreadyLaunched.selector, token));
+        vm.prank(admin);
+        sale.launchSale{ value: CREATION_FEE }("Second Token", "SEC", "", 8, SUPPLY, PRICE_USD);
+    }
+
+    function test_launchSale_revertsOnBadInput() public {
+        vm.startPrank(admin);
+        vm.expectRevert(ITokenSale.TokenSaleInvalidPrice.selector);
+        sale.launchSale{ value: CREATION_FEE }("Lattice Sale Token", "LST", "", 8, SUPPLY, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(ITokenSale.TokenSaleInvalidDecimals.selector, int32(19)));
+        sale.launchSale{ value: CREATION_FEE }("Lattice Sale Token", "LST", "", 19, SUPPLY, PRICE_USD);
+        vm.stopPrank();
     }
 
     function test_storageSlot_followsErc7201() public pure {
