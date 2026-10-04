@@ -8,8 +8,8 @@ import { InitializableLib } from "@lattice/utils/libraries/InitializableLib.sol"
 /// @notice Runs Lattice initializers from a `diamondCut` on a diamond that already exists. A Lattice initializer
 ///         only runs inside the diamond's initializing window, which closed when the diamond was created, so
 ///         this opens the next reinitializer version around `MultiInit`'s loop. The diamond delegatecalls it.
-/// @dev Pass it as `diamondCut`'s `_init`, so it runs with the cut's access control (`DEFAULT_ADMIN_ROLE` on
-///      `AccessControlDiamondCut`). Called directly, it only touches its own storage.
+/// @dev Pass it as `diamondCut`'s `_init`, so it runs with the cut's checks (`DEFAULT_ADMIN_ROLE`, and no active
+///      emergency stop, on `AccessControlDiamondCut`). Called directly, it only touches its own storage.
 contract UpgradeMultiInit is MultiInit {
     /// @notice Runs each `inits[i]` with `calls[i]` by delegatecall, inside a fresh initializing window.
     /// @dev Raises the diamond's initialized version by one each run. Reverts with `InvalidInitialization` if

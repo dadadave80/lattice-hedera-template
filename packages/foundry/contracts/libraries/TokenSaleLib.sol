@@ -31,7 +31,7 @@ struct TokenSaleStorage {
     int32 decimals;
     /// Token units sold, by `buy` and `buyFor` alike.
     int64 sold;
-    /// The key read from the diamond's `latestAnswer(bytes32)`, set once by `TokenSaleInit`.
+    /// The key passed to the diamond's `latestAnswer(bytes32)`, set once by `TokenSaleInit`.
     bytes32 feedKey;
     /// USD per whole token, 18 decimals.
     uint256 priceUsd;
@@ -44,7 +44,8 @@ struct TokenSaleStorage {
 interface IPriceFeed {
     /// @notice The latest price for `key`.
     /// @param key The feed's key, such as `"HBAR/USD"`.
-    /// @return answerWad The price, 18 decimals. Lattice's adapters revert rather than return a stale answer.
+    /// @return answerWad The price, 18 decimals. Lattice's adapters revert when the answer is older than the
+    ///         feed's registered staleness limit.
     function latestAnswer(bytes32 key) external view returns (int256 answerWad);
 }
 
@@ -113,8 +114,8 @@ library TokenSaleLib {
     }
 
     /// @notice See `ITokenSale.withdrawProceeds`. Caller must hold `DEFAULT_ADMIN_ROLE`.
-    /// @dev Emits before the transfer, and the recipient's code runs with the full call gas. Not gated by the
-    ///      emergency stop.
+    /// @dev Emits before the transfer, and the recipient's code runs with all the gas the call forwards. Not
+    ///      gated by the emergency stop.
     /// @param to The recipient.
     /// @param tinybars The amount to send.
     function withdrawProceeds(address payable to, uint256 tinybars) internal {

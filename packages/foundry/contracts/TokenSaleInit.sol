@@ -5,8 +5,8 @@ import { TokenSaleLib } from "./libraries/TokenSaleLib.sol";
 
 /// @title TokenSaleInit
 /// @notice Initializer for the TokenSale facet. The diamond delegatecalls it once, while it is being created.
-/// @dev Writes to the storage of whoever delegatecalls it. Called any other way, it reverts with
-///      `NotInitializing`, because it only runs inside the diamond's initializing window.
+/// @dev Writes to the storage of whoever delegatecalls it. It reverts with `NotInitializing` unless that
+///      storage's initializing window is open: while the diamond is created, or inside `UpgradeMultiInit`.
 contract TokenSaleInit {
     /// @notice Stores the key the sale reads its HBAR/USD rate under.
     /// @param feedKey The key the sale passes to the diamond's `latestAnswer(bytes32)` for the HBAR/USD rate.

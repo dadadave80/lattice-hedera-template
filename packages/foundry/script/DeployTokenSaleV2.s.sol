@@ -8,7 +8,7 @@ import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 /// @notice Deploys the TokenSaleV2 facet on its own. It changes nothing until the diamond's admin cuts it
 ///         in, which the app's Diamond page does (see the README's upgrade walkthrough).
 /// @dev Records the facet in `deployments/<chainId>.json`, not in the diamond's record, so the app's `Diamond`
-///      ABI does not gain `bonusBps()`.
+///      ABI does not gain `bonusBps()`. A dry run still writes the simulated address there.
 contract DeployTokenSaleV2 is ScaffoldETHDeploy {
     /// @notice Deploys the facet from the broadcasting account and records its address.
     function run() external ScaffoldEthDeployerRunner {

@@ -10,7 +10,7 @@ import { Vm } from "forge-std/Vm.sol";
 contract ScaffoldETHDeploy is Script {
     /// @notice No endpoint in `foundry.toml`'s `[rpc_endpoints]` serves the current chain.
     error InvalidChain();
-    /// @notice The deployer has no balance to pay for the deployment.
+    /// @notice Unused here; kept from Scaffold-ETH.
     error DeployerHasNoBalance();
     /// @notice The broadcast resolved to no deployer address.
     error InvalidPrivateKey(string);
@@ -38,7 +38,7 @@ contract ScaffoldETHDeploy is Script {
     address deployer;
 
     /// @notice Use this modifier on your run() function on your deploy scripts. It broadcasts the body and then
-    ///         writes every entry of `deployments` to `deployments/<chainId>.json`.
+    ///         overwrites `deployments/<chainId>.json` with `deployments`, even on a dry run.
     modifier ScaffoldEthDeployerRunner() {
         deployer = _startBroadcast();
         if (deployer == address(0)) {

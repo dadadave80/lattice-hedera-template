@@ -2,7 +2,8 @@
 pragma solidity ^0.8.30;
 
 // The facets (and inits) this project can deploy by name. One import line wires one more.
-// `DeployDiamond` deploys a recipe's facet from `out/<Name>.sol/<Name>.json`, which exists only if it is imported here.
+// `DeployDiamond` stops unless `out/<Name>.sol/<Name>.json` exists for each recipe facet and init, and Foundry
+// writes it only for what is imported here.
 import { DiamondLoupeFacet } from "@diamond/facets/DiamondLoupeFacet.sol";
 import { ERC165Facet } from "@diamond/facets/ERC165Facet.sol";
 import { Receive } from "@lattice/Receive.sol";

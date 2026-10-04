@@ -121,7 +121,8 @@ contract DeployDiamond is BaseDeploy {
 
     /// @notice The facet cuts and initializer calls for the recipe's base plus the Hedera layer.
     /// @dev Deploys the facets and initializers it names. Reverts with a message naming the fix when the recipe
-    ///      lacks `HTSAdapter` or its init, names a facet that is not compiled in, or gives a selector two owners.
+    ///      lacks `HTSAdapter` or its init, names a facet or init that is not compiled in, leaves a selector
+    ///      exported by two facets, or has an init this script cannot encode.
     /// @param json The recipe, as text.
     /// @param admin The address that stands for `{"$ref": "deployer"}`.
     /// @return names The facet name behind each cut, in cut order.

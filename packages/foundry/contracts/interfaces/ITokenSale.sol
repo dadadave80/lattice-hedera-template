@@ -10,9 +10,9 @@ pragma solidity ^0.8.30;
 ///      - over JSON-RPC, a transaction's `value` is weibars (1 HBAR = 1e18) and the relay converts.
 ///      Every HBAR amount in this interface is tinybars. USD amounts are 18-decimal fixed point (WAD).
 ///      Token amounts are in the token's smallest unit and are `int64`, as HTS defines them.
-///      `buy` and `IStealthBuy.buyFor` revert with `IEmergencyStop.EmergencyStopActive` while a guardian holds
-///      the diamond's emergency stop. Nothing else here is gated by it: quotes, the admin functions and
-///      withdrawals keep working.
+///      `buy` and `IStealthBuy.buyFor` revert with `IEmergencyStop.EmergencyStopActive` while the diamond's
+///      emergency stop is active (a guardian activates it; only `DEFAULT_ADMIN_ROLE` resumes). Nothing else here
+///      is gated by it: quotes, the admin functions and withdrawals keep working.
 interface ITokenSale {
     /// @notice Emitted once, when the sale token is created and its price set.
     /// @param token The new HTS token, treasuried by the diamond.
@@ -32,7 +32,8 @@ interface ITokenSale {
     /// @param hbarUsd The oracle answer the purchase was priced at: USD per HBAR, 18 decimals.
     event TokensPurchased(address indexed buyer, uint256 tinybars, int64 tokens, uint256 hbarUsd);
 
-    /// @notice Emitted when the admin withdraws HBAR from the diamond, before the transfer is made.
+    /// @notice Emitted when the admin withdraws HBAR from the diamond. Emitted before the transfer, so a failed
+    ///         transfer reverts it with the rest of the call.
     /// @param to The recipient.
     /// @param tinybars The amount sent.
     event ProceedsWithdrawn(address indexed to, uint256 tinybars);
@@ -99,6 +100,8 @@ interface ITokenSale {
     ///      small to buy one more unit. The caller must be associated with the token or have a free automatic
     ///      association slot. Reverts with `IEmergencyStop.EmergencyStopActive` while the sale is stopped, and
     ///      with `TokenSaleTransferFailed(178)` when the diamond holds fewer tokens than the payment buys.
+    ///      Also reverts with `TokenSaleNotLaunched`, `TokenSaleInvalidPrice` on a bad oracle answer,
+    ///      `TokenSaleInvalidAmount`, and `TokenSaleBuyerNotAssociated(msg.sender)` (HTS 184).
     /// @param minTokens Reverts with `TokenSaleSlippage` if the payment buys fewer token units.
     /// @return tokens Token units transferred to the caller.
     function buy(int64 minTokens) external payable returns (int64 tokens);
