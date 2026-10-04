@@ -38,3 +38,17 @@ export function minTokensOut(quotedTokens: bigint, slippageBps: bigint): bigint 
 export function formatAmount(value: bigint, decimals: number, maximumFractionDigits = 4): string {
   return Number(formatUnits(value, decimals)).toLocaleString("en-US", { maximumFractionDigits });
 }
+
+/**
+ * Formats a price held in its smallest unit with up to `significantDigits` significant digits, so a positive price
+ * never reads as 0. The integer part is always shown whole.
+ */
+export function formatPrice(value: bigint, decimals: number, significantDigits = 4): string {
+  if (value <= 0n) return "0";
+  const integerDigits = value.toString().length - decimals;
+  const fractionDigits = Math.min(decimals, Math.max(0, significantDigits - integerDigits));
+  const unit = 10n ** BigInt(decimals - fractionDigits);
+  const [integer, fraction] = formatUnits(((value + unit / 2n) / unit) * unit, decimals).split(".");
+  const grouped = BigInt(integer).toLocaleString("en-US");
+  return fraction ? `${grouped}.${fraction}` : grouped;
+}

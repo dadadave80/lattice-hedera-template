@@ -15,7 +15,14 @@ import {
 } from "~~/hooks/scaffold-hbar";
 import { useSale } from "~~/hooks/useSale";
 import { hrc719Abi } from "~~/utils/sale/hrc719";
-import { TINYBAR_DECIMALS, formatAmount, hbarToTinybars, minTokensOut, tinybarsToWeibars } from "~~/utils/sale/units";
+import {
+  TINYBAR_DECIMALS,
+  formatAmount,
+  formatPrice,
+  hbarToTinybars,
+  minTokensOut,
+  tinybarsToWeibars,
+} from "~~/utils/sale/units";
 
 /** Accept up to 1% fewer tokens than quoted if the oracle moves before the transaction lands. */
 const SLIPPAGE_BPS = 100n;
@@ -146,24 +153,25 @@ export const SaleCard = () => {
             <span className="badge badge-secondary">+{formatAmount(bonusBps, 2)}% bonus</span>
           )}
           <span className="badge badge-primary badge-outline">
-            ${formatAmount(sale.priceUsd, 18)} per {symbol ?? "token"}
+            ${formatPrice(sale.priceUsd, 18)} per {symbol ?? "token"}
           </span>
         </div>
       </div>
 
       <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6 text-sm">
-        <Stat label="HBAR / USD (Chainlink)" value={hbarUsd !== undefined ? `$${formatAmount(hbarUsd, 18)}` : "…"} />
+        <Stat label="HBAR / USD (Chainlink)" value={hbarUsd !== undefined ? `$${formatPrice(hbarUsd, 18)}` : "…"} />
         <Stat label="Available" value={typeof available === "bigint" ? formatAmount(available, sale.decimals) : "…"} />
         <Stat label="Sold" value={formatAmount(sale.sold, sale.decimals)} />
         <Stat label="Raised" value={`${formatAmount(sale.raised, TINYBAR_DECIMALS)} HBAR`} />
       </dl>
 
-      <label className="text-sm font-medium" htmlFor="hbar-amount">
-        Pay with HBAR
-      </label>
-      <HbarInput name="hbar-amount" placeholder="0.0" onValueChange={({ valueInNative }) => setHbar(valueInNative)} />
+      <fieldset>
+        <legend className="text-sm font-medium">Pay with HBAR</legend>
+        <HbarInput name="hbar-amount" placeholder="0.0" onValueChange={({ valueInNative }) => setHbar(valueInNative)} />
+      </fieldset>
       <p className="text-sm text-base-content/70 mt-2 mb-4">
-        {quote !== undefined ? `You receive about ${formatAmount(quote, sale.decimals)} ${symbol ?? ""}` : " "}
+        Sends {formatAmount(tinybars ?? 0n, TINYBAR_DECIMALS, TINYBAR_DECIMALS)} HBAR
+        {quote !== undefined && ` · You receive about ${formatAmount(quote, sale.decimals)} ${symbol ?? ""}`}
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -176,7 +184,7 @@ export const SaleCard = () => {
         <button
           className="btn btn-primary btn-sm"
           onClick={buy}
-          disabled={!address || quote === undefined || isBuying || isStopped === true}
+          disabled={!address || tinybars === undefined || quote === undefined || isBuying || isStopped === true}
         >
           {isAssociated === true ? "Buy" : "2. Buy"}
         </button>

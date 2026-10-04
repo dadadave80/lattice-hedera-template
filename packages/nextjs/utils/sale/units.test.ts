@@ -1,5 +1,5 @@
-import { formatAmount, hbarToTinybars, minTokensOut, parsePositive, tinybarsToWeibars } from "./units";
-import { parseEther } from "viem";
+import { formatAmount, formatPrice, hbarToTinybars, minTokensOut, parsePositive, tinybarsToWeibars } from "./units";
+import { parseEther, parseUnits } from "viem";
 import { describe, expect, it } from "vitest";
 
 describe("hbarToTinybars", () => {
@@ -15,6 +15,12 @@ describe("hbarToTinybars", () => {
 
   it("rounds away more precision than a tinybar holds", () => {
     expect(hbarToTinybars("0.000000019")).toBe(2n);
+  });
+
+  it("returns undefined for an amount that is zero, negative or rounds down to zero tinybars", () => {
+    expect(hbarToTinybars("0.0")).toBeUndefined();
+    expect(hbarToTinybars("-1")).toBeUndefined();
+    expect(hbarToTinybars("0.000000004")).toBeUndefined();
   });
 });
 
@@ -49,5 +55,38 @@ describe("formatAmount", () => {
 
   it("takes the number of decimals to show", () => {
     expect(formatAmount(50_000_000_000_000_000n, 18, 2)).toBe("0.05");
+  });
+});
+
+describe("formatPrice", () => {
+  it("shows a price with up to four significant digits", () => {
+    expect(formatPrice(parseUnits("0.05", 18), 18)).toBe("0.05");
+    expect(formatPrice(parseUnits("0.1015", 8), 8)).toBe("0.1015");
+    expect(formatPrice(parseUnits("0.123456", 18), 18)).toBe("0.1235");
+    expect(formatPrice(parseUnits("12.34567", 18), 18)).toBe("12.35");
+  });
+
+  it("keeps a price below a tenth of a cent from showing as zero or as a rounded-up neighbour", () => {
+    expect(formatPrice(parseUnits("0.00004", 18), 18)).toBe("0.00004");
+    expect(formatPrice(parseUnits("0.00006", 18), 18)).toBe("0.00006");
+    expect(formatPrice(1n, 18)).toBe("0.000000000000000001");
+  });
+
+  it("carries a rounded-up digit into the next place", () => {
+    expect(formatPrice(parseUnits("0.99996", 18), 18)).toBe("1");
+    expect(formatPrice(parseUnits("0.000099996", 18), 18)).toBe("0.0001");
+  });
+
+  it("keeps the whole integer part exact, however large", () => {
+    expect(formatPrice(parseUnits("123456.789", 18), 18)).toBe("123,457");
+    expect(formatPrice(parseUnits("12345678901234567890.25", 18), 18)).toBe("12,345,678,901,234,567,890");
+  });
+
+  it("shows zero as 0", () => {
+    expect(formatPrice(0n, 18)).toBe("0");
+  });
+
+  it("takes the number of significant digits", () => {
+    expect(formatPrice(parseUnits("0.123456", 18), 18, 2)).toBe("0.12");
   });
 });
