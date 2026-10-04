@@ -17,7 +17,7 @@ import { MockAggregatorV3 } from "./mocks/MockAggregatorV3.sol";
 /// @dev Opens the two steps `run()` performs after the diamond exists, so they can be tested without a broadcast.
 contract DeployDiamondHarness is DeployDiamond {
     function registerHbarUsdFeed(address diamond) external {
-        _registerHbarUsdFeed(diamond);
+        _registerHbarUsdFeed(diamond, address(this));
     }
 
     function writeRecord(address diamond, string[] memory names, FacetCut[] memory cuts) external {
@@ -227,6 +227,41 @@ contract DeployDiamondTest is Test {
         assertEq(feed, HBAR_USD_FEED_TESTNET);
         // 365 days on testnet, unless your .env sets HBAR_USD_MAX_STALENESS.
         assertEq(maxStaleness, vm.envOr("HBAR_USD_MAX_STALENESS", uint256(365 days)));
+    }
+
+    function test_registerHbarUsdFeed_leavesTheFeedToARecipeAdminThatIsNotTheDeployer() public {
+        address safe = makeAddr("safe");
+        string memory json = vm.replace(
+            recipe, '{\n            "$ref": "deployer"\n          }', string.concat('"', vm.toString(safe), '"')
+        );
+        address diamond = deployer.assemble(json, address(deployer));
+
+        deployer.registerHbarUsdFeed(diamond); // must not revert
+
+        (address feed,) = IChainlinkAdapter(diamond).getFeed("HBAR/USD");
+        assertEq(feed, address(0));
+        assertFalse(IAccessControl(diamond).hasRole(bytes32(0), address(deployer)), "the deployer is not admin");
+        assertTrue(IAccessControl(diamond).hasRole(bytes32(0), safe), "the recipe's admin can register it");
+    }
+
+    function test_registerHbarUsdFeed_registersWhenAnyInitMadeTheDeployerAdmin() public {
+        vm.etch(HBAR_USD_FEED_TESTNET, address(new MockAggregatorV3()).code);
+        address safe = makeAddr("safe");
+        // ChainlinkAdapterInit names another admin; HTSAdapterInit still makes the deployer admin.
+        string memory json = vm.replace(
+            recipe,
+            '"spec": "ChainlinkAdapterInit",\n        "args": {\n          "admin": {\n            "$ref": "deployer"\n          }',
+            string.concat(
+                '"spec": "ChainlinkAdapterInit",\n        "args": {\n          "admin": "', vm.toString(safe), '"'
+            )
+        );
+        address diamond = deployer.assemble(json, address(deployer));
+        assertTrue(IAccessControl(diamond).hasRole(bytes32(0), safe), "ChainlinkAdapterInit named the other admin");
+
+        deployer.registerHbarUsdFeed(diamond);
+
+        (address feed,) = IChainlinkAdapter(diamond).getFeed("HBAR/USD");
+        assertEq(feed, HBAR_USD_FEED_TESTNET);
     }
 
     function test_registerHbarUsdFeed_skipsADiamondWithoutChainlink() public {

@@ -4,6 +4,8 @@ pragma solidity ^0.8.30;
 import { IDiamondLoupe } from "@diamond/interfaces/IDiamondLoupe.sol";
 import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
+import { DEFAULT_ADMIN_ROLE } from "@lattice/access/libraries/AccessControlLib.sol";
+import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { PythAdapterInit } from "@lattice/oracles/pyth/PythAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
@@ -55,7 +57,7 @@ contract DeployDiamond is BaseDeploy {
         (string[] memory names, FacetCut[] memory cuts, address[] memory inits, bytes[] memory calls) =
             build(json, deployer);
         diamond = _assembleMulti(cuts, inits, calls);
-        _registerHbarUsdFeed(diamond);
+        _registerHbarUsdFeed(diamond, deployer);
         vm.stopBroadcast();
 
         string[] memory notes = warnings(json, cuts);
@@ -201,7 +203,7 @@ contract DeployDiamond is BaseDeploy {
 
     /// @dev `TokenSale.launchSale` creates the token through `HTSAdapterLib`, which needs `HTS_MANAGER_ROLE`, and
     ///      `HTSAdapterInit` is what grants it.
-    function _requireHtsAdapter(string memory json, string[] memory facets, uint256 steps) internal view {
+    function _requireHtsAdapter(string memory json, string[] memory facets, uint256 steps) internal pure {
         bool cut;
         for (uint256 i; i < facets.length; ++i) {
             if (_eq(facets[i], "HTSAdapter")) cut = true;
@@ -287,7 +289,8 @@ contract DeployDiamond is BaseDeploy {
     // ── after the diamond exists ────────────────────────────────────────────────────────────────────
 
     /// @dev Chainlink only. Another oracle facet registers its feed with its own arguments (see the README).
-    function _registerHbarUsdFeed(address diamond) internal {
+    ///      `registerFeed` needs `DEFAULT_ADMIN_ROLE`, which `caller` lacks when the recipe names another admin.
+    function _registerHbarUsdFeed(address diamond, address caller) internal {
         if (IDiamondLoupe(diamond).facetAddress(IChainlinkAdapter.registerFeed.selector) == address(0)) {
             console.log(
                 "No ChainlinkAdapter in this recipe: register an HBAR/USD feed under the key 'HBAR/USD' yourself."
@@ -295,10 +298,25 @@ contract DeployDiamond is BaseDeploy {
             return;
         }
         bool mainnet = block.chainid == 295;
+        address feed = mainnet ? HBAR_USD_FEED_MAINNET : HBAR_USD_FEED_TESTNET;
         // Testnet feeds are not kept on a production heartbeat, so the testnet default is deliberately loose.
         uint256 maxStaleness = vm.envOr("HBAR_USD_MAX_STALENESS", mainnet ? uint256(25 hours) : uint256(365 days));
-        IChainlinkAdapter(diamond)
-            .registerFeed(HBAR_USD, mainnet ? HBAR_USD_FEED_MAINNET : HBAR_USD_FEED_TESTNET, uint48(maxStaleness));
+        if (
+            IDiamondLoupe(diamond).facetAddress(IAccessControl.hasRole.selector) != address(0)
+                && !IAccessControl(diamond).hasRole(DEFAULT_ADMIN_ROLE, caller)
+        ) {
+            console.log(
+                string.concat(
+                    "The recipe makes another account admin, so the feed is not registered. From that account, call registerFeed(\"HBAR/USD\", ",
+                    vm.toString(feed),
+                    ", ",
+                    vm.toString(maxStaleness),
+                    ") on the diamond."
+                )
+            );
+            return;
+        }
+        IChainlinkAdapter(diamond).registerFeed(HBAR_USD, feed, uint48(maxStaleness));
     }
 
     /// @dev What `scripts-js/generateTsAbis.js` needs to give the frontend one `Diamond` contract: the address,
