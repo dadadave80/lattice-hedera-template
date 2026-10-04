@@ -5,6 +5,8 @@ import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
 import { HTSAdapterInit } from "@lattice/tokens/hedera/HTSAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
+import { TokenSale } from "../contracts/TokenSale.sol";
+import { TokenSaleInit } from "../contracts/TokenSaleInit.sol";
 
 // A facet is deployed by name from its compiled artifact, and Foundry compiles only what something imports.
 // Importing the wiring file here makes every wired facet part of any build that includes this script.
@@ -14,13 +16,16 @@ import "../contracts/LatticeFacets.sol";
 /// @notice Builds this project's diamond in two layers and deploys it in one transaction.
 ///         - The Lattice base comes from `diamond.recipe.json`, a file in Lattice Studio's recipe format.
 ///           Change the base by editing that file (or exporting over it from Studio), never by editing cuts here.
-///         - The Hedera layer is fixed below: `HTSAdapter`. It stays out of the recipe because Studio's
-///           catalog does not carry the Hedera facets yet.
+///         - The Hedera layer is fixed below: `HTSAdapter` and this project's `TokenSale` facet. It stays out
+///           of the recipe because Studio's catalog does not carry the Hedera facets yet.
 /// @dev `build` and `assemble` take the recipe as a string and never broadcast, so tests call them directly.
 contract DeployDiamond is BaseDeploy {
+    /// @dev The key the sale reads its HBAR/USD rate under, on whichever oracle facet the recipe cuts.
+    bytes32 internal constant HBAR_USD = "HBAR/USD";
+
     /// @dev How many facets and initializers the Hedera layer appends to the recipe's.
-    uint256 internal constant HEDERA_FACETS = 1;
-    uint256 internal constant HEDERA_INITS = 2;
+    uint256 internal constant HEDERA_FACETS = 2;
+    uint256 internal constant HEDERA_INITS = 3;
 
     /// @notice Deploys the diamond described by `json` plus the Hedera layer, with `admin` holding every role.
     function assemble(string memory json, address admin) public returns (address diamond) {
@@ -43,6 +48,8 @@ contract DeployDiamond is BaseDeploy {
         }
         names[base.length] = "HTSAdapter";
         cuts[base.length] = _cut(_facet("HTSAdapter"));
+        names[base.length + 1] = "TokenSale";
+        cuts[base.length + 1] = _cut(address(new TokenSale()));
 
         uint256 steps = _stepCount(json);
         inits = new address[](steps + HEDERA_INITS);
@@ -52,8 +59,10 @@ contract DeployDiamond is BaseDeploy {
         }
         inits[steps] = address(new HTSAdapterInit());
         calls[steps] = abi.encodeCall(HTSAdapterInit.init, (admin));
-        inits[steps + 1] = address(new DiamondIntrospectionInit());
-        calls[steps + 1] = abi.encodeCall(DiamondIntrospectionInit.initUpgradeable, ());
+        inits[steps + 1] = address(new TokenSaleInit());
+        calls[steps + 1] = abi.encodeCall(TokenSaleInit.init, (HBAR_USD));
+        inits[steps + 2] = address(new DiamondIntrospectionInit());
+        calls[steps + 2] = abi.encodeCall(DiamondIntrospectionInit.initUpgradeable, ());
     }
 
     // ── recipe reading ──────────────────────────────────────────────────────────────────────────────

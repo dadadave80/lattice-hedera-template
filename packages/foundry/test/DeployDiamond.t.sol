@@ -8,6 +8,7 @@ import { Lattice } from "@lattice/Lattice.sol";
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { Test } from "forge-std/Test.sol";
+import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
 
 contract DeployDiamondTest is Test {
@@ -23,6 +24,7 @@ contract DeployDiamondTest is Test {
     /// @dev The one test that reads your own `diamond.recipe.json`. It stays green as long as that file builds.
     function test_projectRecipe_buildsADiamondWithTheHederaLayer() public {
         (address diamond,,) = _diamond(vm.readFile("diamond.recipe.json"));
+        assertTrue(IDiamondLoupe(diamond).facetAddress(ITokenSale.saleInfo.selector) != address(0), "TokenSale");
 
         assertTrue(
             IDiamondLoupe(diamond).facetAddress(IHTSAdapter.createFungibleToken.selector) != address(0), "HTSAdapter"
@@ -32,11 +34,12 @@ contract DeployDiamondTest is Test {
     function test_defaultRecipe_buildsTheBaseAndTheHederaLayer() public {
         (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
 
-        assertEq(names.length, 8, "seven base facets and HTSAdapter");
+        assertEq(names.length, 9, "seven base facets, HTSAdapter and TokenSale");
         assertEq(names[7], "HTSAdapter");
+        assertEq(names[8], "TokenSale");
 
         Facet[] memory facets = IDiamondLoupe(diamond).facets();
-        assertEq(facets.length, 8);
+        assertEq(facets.length, 9);
 
         uint256 baseSelectors;
         for (uint256 i; i < cuts.length; ++i) {
@@ -57,6 +60,8 @@ contract DeployDiamondTest is Test {
 
         assertTrue(IAccessControl(diamond).hasRole(bytes32(0), admin), "DEFAULT_ADMIN_ROLE");
         assertTrue(IAccessControl(diamond).hasRole(keccak256("HTS_MANAGER_ROLE"), admin), "HTS_MANAGER_ROLE");
+        (,,, bytes32 feedKey,,) = ITokenSale(diamond).saleInfo();
+        assertEq(feedKey, bytes32("HBAR/USD"), "TokenSaleInit ran");
     }
 
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.
