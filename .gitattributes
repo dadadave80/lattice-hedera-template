@@ -1,0 +1,5 @@
+# Kept in this repository, left out of the projects scaffolded from it: the build documents, the
+# eligibility gate script, and this file.
+.gitattributes export-ignore
+docs export-ignore
+scripts export-ignore

@@ -1,0 +1,56 @@
+{
+  "name": "lattice-hedera-template",
+  "description": "Upgradeable HTS token sale on a Lattice diamond, priced by Chainlink, customizable in Lattice Studio.",
+  "version": "0.1.0",
+  "create-scaffold-hbar": {
+    "capabilities": {
+      "frontend": ["nextjs-app"],
+      "solidityFramework": ["foundry"],
+      "packageManager": ["yarn"]
+    },
+    "defaults": {
+      "frontend": "nextjs-app",
+      "solidityFramework": "foundry",
+      "packageManager": "yarn"
+    },
+    "outro": {
+      "sections": [
+        {
+          "title": "Try it first (nothing to deploy)",
+          "steps": [
+            {
+              "label": "Run the contract and script tests",
+              "command": "{run:foundry:test}"
+            },
+            {
+              "label": "Start the app against the reference diamond on Hedera testnet",
+              "command": "{run:next:dev}"
+            }
+          ]
+        },
+        {
+          "title": "Deploy your own diamond",
+          "steps": [
+            {
+              "label": "Create a deployer account",
+              "command": "{run:foundry:account:generate}"
+            },
+            {
+              "label": "Fund it with testnet HBAR",
+              "url": "https://portal.hedera.com/faucet"
+            },
+            {
+              "label": "Deploy to Hedera testnet",
+              "command": "{run:foundry:deploy} --network hedera_testnet",
+              "text": "Deploying needs Foundry 1.7.1 for now. The README explains why."
+            },
+            {
+              "label": "Change the diamond in Lattice Studio",
+              "command": "{run:diamond:studio}"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
