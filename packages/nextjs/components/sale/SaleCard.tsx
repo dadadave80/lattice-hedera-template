@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
+import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, parseAbi, zeroAddress } from "viem";
-import { useAccount, useReadContract, useReadContracts, useWriteContract } from "wagmi";
+import { useAccount, useBlockNumber, useReadContract, useReadContracts, useWriteContract } from "wagmi";
 import { DiamondNotDeployed } from "~~/components/diamond/DiamondNotDeployed";
 import {
   useDeployedContractInfo,
@@ -65,12 +66,24 @@ export const SaleCard = () => {
     query: { enabled: sale.isLaunched && address !== undefined },
   });
 
-  const { data: bonusBps } = useReadContract({
+  const queryClient = useQueryClient();
+  const {
+    data: bonusBps,
+    isError: isBonusError,
+    queryKey: bonusQueryKey,
+  } = useReadContract({
+    chainId: targetNetwork.id,
     address: diamond?.address,
     abi: bonusAbi,
     functionName: "bonusBps",
     query: { enabled: diamond !== undefined, retry: false },
   });
+  const { data: blockNumber } = useBlockNumber({ watch: true, chainId: targetNetwork.id });
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: bonusQueryKey });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockNumber]);
 
   const transactor = useTransactor();
   const { writeContractAsync: writeToken } = useWriteContract();
@@ -127,7 +140,9 @@ export const SaleCard = () => {
           {name ?? "Token"} <span className="text-base-content/60 font-normal">{symbol}</span>
         </h2>
         <div className="flex flex-wrap gap-2">
-          {bonusBps !== undefined && <span className="badge badge-secondary">+{formatAmount(bonusBps, 2)}% bonus</span>}
+          {bonusBps !== undefined && !isBonusError && (
+            <span className="badge badge-secondary">+{formatAmount(bonusBps, 2)}% bonus</span>
+          )}
           <span className="badge badge-primary badge-outline">
             ${formatAmount(sale.priceUsd, 18)} per {symbol ?? "token"}
           </span>
