@@ -9,6 +9,7 @@
     ]
   },
   "scripts": {
+    "diamond:studio": "yarn workspace @sh/foundry diamond:studio",
     "foundry:account": "yarn workspace @sh/foundry account",
     "foundry:account:generate": "yarn workspace @sh/foundry account:generate",
     "foundry:account:import": "yarn workspace @sh/foundry account:import",

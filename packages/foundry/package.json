@@ -11,6 +11,7 @@
     "clean": "forge clean",
     "compile": "make compile",
     "deploy": "node scripts-js/parseArgs.js",
+    "diamond:studio": "node scripts-js/studioLink.js",
     "flatten": "make flatten",
     "fork": "make fork",
     "format": "make format",
