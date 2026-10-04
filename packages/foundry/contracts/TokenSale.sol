@@ -6,8 +6,10 @@ import { TokenSaleLib, TokenSaleStorage } from "./libraries/TokenSaleLib.sol";
 
 /// @title TokenSale
 /// @notice Diamond facet that sells the diamond's own HTS token for HBAR at a USD price.
-/// @dev Stateless: every function forwards to TokenSaleLib. Cut it into a diamond that also carries
-///      `HTSAdapter`, `AccessControl` and a price-feed facet such as `ChainlinkAdapter`.
+/// @dev Stateless: every function forwards to TokenSaleLib, and the sale's state lives in the diamond at
+///      `TokenSaleStorage`'s ERC-7201 slot. Cut it into a diamond that also carries `HTSAdapter`,
+///      `AccessControl` and a price-feed facet such as `ChainlinkAdapter`; `EmergencyStop` is what lets a
+///      guardian halt purchases. Upgrades subclass it and override `_bonusBps`, as `TokenSaleV2` does.
 contract TokenSale is ITokenSale {
     /// @inheritdoc ITokenSale
     function launchSale(
@@ -52,7 +54,8 @@ contract TokenSale is ITokenSale {
         return ($.token, $.decimals, $.priceUsd, $.feedKey, $.sold, $.raised);
     }
 
-    /// @dev Bonus applied to every quote and purchase, in basis points. An upgraded facet overrides it.
+    /// @dev Bonus applied to every quote and purchase, in basis points. An upgraded facet overrides it. A
+    ///      constant in the facet's code, not storage, so cutting the facet in is what changes it.
     function _bonusBps() internal view virtual returns (uint256) {
         return 0;
     }
@@ -65,6 +68,7 @@ contract TokenSale is ITokenSale {
     ///      `saleInfo()` 0x8e3695b8
     ///      `setSalePrice(uint256)` 0x1919fed7
     ///      `withdrawProceeds(address,uint256)` 0x970ea83e
+    /// @return selectors The selectors, concatenated.
     function exportSelectors() external pure virtual returns (bytes memory selectors) {
         selectors = hex"08bf598ddf1d74aeed1bd76c8e3695b81919fed7970ea83e";
     }

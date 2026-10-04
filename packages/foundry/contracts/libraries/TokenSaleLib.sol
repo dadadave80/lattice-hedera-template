@@ -18,29 +18,44 @@ uint256 constant TINYBARS_PER_HBAR = 1e8;
 /// @dev Basis points in 100%.
 uint256 constant BPS = 10_000;
 
-/// @dev The largest amount an HTS `int64` can carry.
+/// @dev The largest amount an HTS `int64` can carry: `type(int64).max`.
 uint256 constant MAX_TOKEN_UNITS = 9_223_372_036_854_775_807;
 
-/// @notice ERC-7201 namespaced storage for TokenSale. Append new fields at the end; never reorder.
+/// @notice ERC-7201 namespaced storage for TokenSale, shared by every sale facet and StealthBuy. Append new
+///         fields at the end; never reorder or remove one.
 /// @custom:storage-location erc7201:lattice-hedera-template.storage.TokenSale
 struct TokenSaleStorage {
+    /// The HTS token on sale; zero until `launchSale`.
     address token;
+    /// The token's decimals, 0..18.
     int32 decimals;
+    /// Token units sold, by `buy` and `buyFor` alike.
     int64 sold;
+    /// The key read from the diamond's `latestAnswer(bytes32)`, set once by `TokenSaleInit`.
     bytes32 feedKey;
+    /// USD per whole token, 18 decimals.
     uint256 priceUsd;
+    /// Tinybars paid for tokens, stipends excluded. Withdrawals do not reduce it.
     uint256 raised;
 }
 
+/// @title IPriceFeed
 /// @notice The read every Lattice price-feed facet serves under the same selector.
 interface IPriceFeed {
+    /// @notice The latest price for `key`.
+    /// @param key The feed's key, such as `"HBAR/USD"`.
+    /// @return answerWad The price, 18 decimals. Lattice's adapters revert rather than return a stale answer.
     function latestAnswer(bytes32 key) external view returns (int256 answerWad);
 }
 
 /// @title TokenSaleLib
 /// @notice Logic and storage for the TokenSale facet. The facet is a stateless forwarder, which is the Lattice
 ///         module pattern: an upgrade swaps the facet while this storage stays where it is.
+/// @dev Runs in the diamond's context: `address(this)` is the diamond, which holds the HBAR, treasuries the
+///      token and serves the oracle read. HBAR amounts are tinybars, USD amounts 18-decimal fixed point.
 library TokenSaleLib {
+    /// @notice The sale's storage, at its ERC-7201 slot in the diamond.
+    /// @return $ The storage pointer.
     function tokenSaleStorage() internal pure returns (TokenSaleStorage storage $) {
         assembly {
             $.slot := TOKEN_SALE_STORAGE_SLOT
@@ -48,11 +63,23 @@ library TokenSaleLib {
     }
 
     /// @notice Stores the oracle feed key. Runs once, inside the diamond's initializing window.
+    /// @dev Reverts with `NotInitializing` outside that window.
+    /// @param feedKey The key passed to the diamond's `latestAnswer(bytes32)`.
     function __TokenSale_init(bytes32 feedKey) internal {
         InitializableLib.checkInitializing(InitializableLib.initializableSlot());
         tokenSaleStorage().feedKey = feedKey;
     }
 
+    /// @notice See `ITokenSale.launchSale`. Checks `DEFAULT_ADMIN_ROLE` here; `HTSAdapterLib` checks
+    ///         `HTS_MANAGER_ROLE` and forwards `msg.value` to HTS as the creation fee.
+    /// @dev HTS failures surface as `HTSAdapterLib`'s errors, and a negative `supply` as `HTSInvalidAmount`.
+    /// @param name The token's name.
+    /// @param symbol The token's symbol.
+    /// @param memo The token's memo.
+    /// @param decimals Token decimals, 0..18.
+    /// @param supply Initial supply in token units, minted to the diamond.
+    /// @param priceUsd USD per whole token, 18 decimals.
+    /// @return token The new token's address.
     function launchSale(
         string calldata name,
         string calldata symbol,
@@ -76,6 +103,8 @@ library TokenSaleLib {
         emit ITokenSale.SaleLaunched(token, decimals, supply, priceUsd);
     }
 
+    /// @notice See `ITokenSale.setSalePrice`. Caller must hold `DEFAULT_ADMIN_ROLE`.
+    /// @param priceUsd USD per whole token, 18 decimals; not zero.
     function setSalePrice(uint256 priceUsd) internal {
         AccessControlLib.checkRole(DEFAULT_ADMIN_ROLE);
         if (priceUsd == 0) revert ITokenSale.TokenSaleInvalidPrice();
@@ -83,6 +112,11 @@ library TokenSaleLib {
         emit ITokenSale.SalePriceSet(priceUsd);
     }
 
+    /// @notice See `ITokenSale.withdrawProceeds`. Caller must hold `DEFAULT_ADMIN_ROLE`.
+    /// @dev Emits before the transfer, and the recipient's code runs with the full call gas. Not gated by the
+    ///      emergency stop.
+    /// @param to The recipient.
+    /// @param tinybars The amount to send.
     function withdrawProceeds(address payable to, uint256 tinybars) internal {
         AccessControlLib.checkRole(DEFAULT_ADMIN_ROLE);
         emit ITokenSale.ProceedsWithdrawn(to, tinybars);
@@ -90,7 +124,14 @@ library TokenSaleLib {
         if (!ok) revert ITokenSale.TokenSaleWithdrawFailed();
     }
 
+    /// @notice See `ITokenSale.buy`. Prices the whole `msg.value`; the remainder that buys less than one unit
+    ///         stays in the diamond and is counted in `raised`.
+    /// @dev Checks the emergency stop first, so a stopped sale reverts with `EmergencyStopActive` even before
+    ///      launch. Books the totals and emits before the HTS transfer, which reverts the whole purchase if it
+    ///      fails (`TokenSaleTransferFailed(178)` when sold out).
+    /// @param minTokens The fewest token units the payment may buy.
     /// @param bonusBps Extra tokens on top of the quote, in basis points. The facet decides it.
+    /// @return tokens Token units transferred to the caller.
     function buy(int64 minTokens, uint256 bonusBps) internal returns (int64 tokens) {
         EmergencyStopLib.checkNotStopped();
         TokenSaleStorage storage $ = tokenSaleStorage();
@@ -104,6 +145,10 @@ library TokenSaleLib {
         _transferFromTreasury($.token, msg.sender, tokens);
     }
 
+    /// @notice See `ITokenSale.quote`.
+    /// @param tinybars The payment to price.
+    /// @param bonusBps Extra tokens on top of the quote, in basis points.
+    /// @return tokens Token units the payment buys, rounded down.
     function quote(uint256 tinybars, uint256 bonusBps) internal view returns (int64 tokens) {
         TokenSaleStorage storage $ = tokenSaleStorage();
         return _tokensFor($, tinybars, _hbarUsd($), bonusBps);
@@ -139,6 +184,12 @@ library TokenSaleLib {
     /// @dev HTS returns a response code instead of reverting, so the code is checked here. The call is a plain
     ///      `call` from the diamond: HTS sees the diamond as sender, and the diamond holds the tokens. Internal
     ///      for `StealthBuyLib`, which pays out the same way.
+    ///      184 (`TOKEN_NOT_ASSOCIATED_TO_ACCOUNT`) reverts with `TokenSaleBuyerNotAssociated(to)`. A failed call
+    ///      frame counts as 21 (`UNKNOWN`). Any other code but 22 (`SUCCESS`) reverts with
+    ///      `TokenSaleTransferFailed(code)`, 178 (`INSUFFICIENT_TOKEN_BALANCE`) among them when the sale is sold out.
+    /// @param token The HTS token.
+    /// @param to The recipient.
+    /// @param tokens Token units to send.
     function _transferFromTreasury(address token, address to, int64 tokens) internal {
         (bool ok, bytes memory ret) = HTS_SYSTEM_CONTRACT.call(
             abi.encodeCall(IHederaTokenService.transferToken, (token, address(this), to, tokens))

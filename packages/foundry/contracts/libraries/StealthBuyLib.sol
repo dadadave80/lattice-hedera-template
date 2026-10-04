@@ -16,7 +16,15 @@ bytes4 constant ERC20_TRANSFER = 0xa9059cbb;
 /// @title StealthBuyLib
 /// @notice Logic for the StealthBuy facet. It keeps no storage of its own: a stealth purchase is a sale, so it
 ///         books into `TokenSaleStorage` and pays out through the sale's treasury transfer.
+/// @dev Every HBAR amount is tinybars.
 library StealthBuyLib {
+    /// @notice See `IStealthBuy.buyFor`, which documents the units, reverts and ordering.
+    /// @param stealthAddress The recipient's one-time address.
+    /// @param ephemeralPubKey The payer's ephemeral public key, passed through to the announcement.
+    /// @param viewTag The view tag, the first byte of the announcement's metadata.
+    /// @param minTokensOut The fewest token units the payment may buy.
+    /// @param stipend Tinybars sent to `stealthAddress`, taken from `msg.value`. No minimum is enforced.
+    /// @return tokens Token units delivered to `stealthAddress`.
     function buyFor(
         address stealthAddress,
         bytes calldata ephemeralPubKey,
@@ -32,13 +40,15 @@ library StealthBuyLib {
 
         uint256 payment = msg.value - stipend;
         // Priced by the sale facet the diamond runs, bonus included, so a stealth purchase gets what `quote` says.
+        // The quote rounds down; the remainder of `payment` stays in the diamond and is counted in `raised`.
         tokens = ITokenSale(address(this)).quote(payment);
         if (tokens < minTokensOut) revert ITokenSale.TokenSaleSlippage(tokens, minTokensOut);
 
         $.sold += tokens;
         $.raised += payment;
 
-        // The HBAR goes first because on Hedera it is what creates the stealth account the tokens go to.
+        // The HBAR goes first because on Hedera it is what creates the stealth account the tokens go to. The
+        // totals are already booked, so a stealth address that reenters here buys against updated totals.
         (bool ok,) = stealthAddress.call{ value: stipend }("");
         if (!ok) revert IStealthBuy.StealthBuyStipendFailed(stealthAddress);
         TokenSaleLib._transferFromTreasury($.token, stealthAddress, tokens);
