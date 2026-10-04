@@ -132,9 +132,8 @@ export const UpgradeCard = () => {
           ) : (
             <div role="alert" className="alert alert-warning text-sm mb-3">
               <span>
-                This address is not in <code>contracts/deployedContracts.ts</code>, so it is not one of this
-                project&apos;s deployments. A facet only reports its own selectors, so read its code before you cut it
-                in.
+                This address is not recorded in <code>contracts/deployedContracts.ts</code>. A facet only reports its
+                own selectors, so read its code before you cut it in.
               </span>
             </div>
           )}
