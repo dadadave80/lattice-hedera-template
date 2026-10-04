@@ -88,9 +88,12 @@ contract TokenSaleTest is SaleTestBase {
 
     function test_quote_revertsOnAStaleOracleAnswer() public {
         _launch();
+        uint256 updated = block.timestamp;
         skip(2 hours); // the feed was registered with a one-hour limit
 
-        vm.expectRevert(abi.encodeWithSelector(IChainlinkAdapter.ChainlinkStaleData.selector, HBAR_USD, 1, 1 hours));
+        vm.expectRevert(
+            abi.encodeWithSelector(IChainlinkAdapter.ChainlinkStaleData.selector, HBAR_USD, updated, 1 hours)
+        );
         sale.quote(ONE_HBAR);
     }
 

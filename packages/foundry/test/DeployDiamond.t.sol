@@ -35,6 +35,8 @@ contract DeployDiamondTest is Test {
     address internal constant HBAR_USD_FEED_TESTNET = 0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a;
     string internal constant MISSING_HTS_ADAPTER =
         "Recipe: TokenSale creates its token through HTSAdapter, with the roles HTSAdapterInit grants; add HTSAdapter and its HTSAdapterInit step in Lattice Studio";
+    /// @dev A chain no developer deploys to, so the record these tests write never replaces a real one.
+    uint256 internal constant RECORD_CHAIN = 2_960_000_003;
 
     address internal admin = makeAddr("admin");
     DeployDiamondHarness internal deployer;
@@ -248,6 +250,7 @@ contract DeployDiamondTest is Test {
     }
 
     function test_run_refusesAChainThatIsNotHedera() public {
+        vm.chainId(31337); // a fork run starts on Hedera's chain ID
         vm.expectRevert(
             bytes(
                 "DeployDiamond: this diamond needs Hedera (HTS and a Chainlink feed). Deploy with --network hedera_testnet"
@@ -314,6 +317,7 @@ contract DeployDiamondTest is Test {
 
     function test_writeRecord_savesWhatTheFrontendNeeds() public {
         (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
+        vm.chainId(RECORD_CHAIN);
         string memory path = string.concat("deployments/diamond/", vm.toString(block.chainid), ".json");
 
         deployer.writeRecord(diamond, names, cuts);
