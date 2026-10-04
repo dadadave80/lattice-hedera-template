@@ -177,6 +177,31 @@ contract TokenSaleTest is SaleTestBase {
         sale.setSalePrice(0.1e18);
     }
 
+    function test_withdrawProceeds_paysTheRecipient() public {
+        address token = _launch();
+        vm.startPrank(buyer);
+        IHRC719(token).associate();
+        sale.buy{ value: 10 * ONE_HBAR }(0);
+        vm.stopPrank();
+        address payable treasury = payable(makeAddr("treasury"));
+
+        vm.expectEmit(diamond);
+        emit ITokenSale.ProceedsWithdrawn(treasury, 10 * ONE_HBAR);
+        vm.prank(admin);
+        sale.withdrawProceeds(treasury, 10 * ONE_HBAR);
+
+        assertEq(treasury.balance, 10 * ONE_HBAR);
+        assertEq(diamond.balance, 0);
+    }
+
+    function test_withdrawProceeds_revertsForAnyoneButTheAdmin() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, buyer, bytes32(0))
+        );
+        vm.prank(buyer);
+        sale.withdrawProceeds(payable(buyer), 1);
+    }
+
     function test_storageSlot_followsErc7201() public pure {
         bytes32 expected = keccak256(abi.encode(uint256(keccak256("lattice-hedera-template.storage.TokenSale")) - 1))
             & ~bytes32(uint256(0xff));

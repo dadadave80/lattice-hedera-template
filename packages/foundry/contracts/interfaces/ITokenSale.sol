@@ -20,6 +20,9 @@ interface ITokenSale {
     /// @notice Emitted on every purchase. `hbarUsd` is the oracle answer the purchase was priced at.
     event TokensPurchased(address indexed buyer, uint256 tinybars, int64 tokens, uint256 hbarUsd);
 
+    /// @notice Emitted when the admin withdraws sale proceeds.
+    event ProceedsWithdrawn(address indexed to, uint256 tinybars);
+
     /// @notice `launchSale` was called on a diamond that already sells `token`.
     error TokenSaleAlreadyLaunched(address token);
     /// @notice The sale has no token yet: `launchSale` has not been called.
@@ -36,6 +39,8 @@ interface ITokenSale {
     error TokenSaleBuyerNotAssociated(address buyer);
     /// @notice HTS refused the transfer to the buyer with `responseCode`.
     error TokenSaleTransferFailed(int64 responseCode);
+    /// @notice The HBAR transfer to the withdrawal recipient failed.
+    error TokenSaleWithdrawFailed();
 
     /// @notice Creates the sale token through HTS, with the diamond as treasury, and sets its price.
     /// @dev Caller must hold `DEFAULT_ADMIN_ROLE` and `HTS_MANAGER_ROLE`. `msg.value` pays the HTS creation
@@ -54,6 +59,9 @@ interface ITokenSale {
 
     /// @notice Sets the price in USD per whole token, 18 decimals. Caller must hold `DEFAULT_ADMIN_ROLE`.
     function setSalePrice(uint256 priceUsd) external;
+
+    /// @notice Sends `tinybars` of the diamond's HBAR to `to`. Caller must hold `DEFAULT_ADMIN_ROLE`.
+    function withdrawProceeds(address payable to, uint256 tinybars) external;
 
     /// @notice Buys tokens with the HBAR sent. Reverts if that buys fewer than `minTokens`.
     /// @return tokens Token units transferred to the caller.

@@ -80,6 +80,13 @@ library TokenSaleLib {
         emit ITokenSale.SalePriceSet(priceUsd);
     }
 
+    function withdrawProceeds(address payable to, uint256 tinybars) internal {
+        AccessControlLib.checkRole(DEFAULT_ADMIN_ROLE);
+        emit ITokenSale.ProceedsWithdrawn(to, tinybars);
+        (bool ok,) = to.call{ value: tinybars }("");
+        if (!ok) revert ITokenSale.TokenSaleWithdrawFailed();
+    }
+
     function buy(int64 minTokens) internal returns (int64 tokens) {
         EmergencyStopLib.checkNotStopped();
         TokenSaleStorage storage $ = tokenSaleStorage();

@@ -27,6 +27,11 @@ contract TokenSale is ITokenSale {
     }
 
     /// @inheritdoc ITokenSale
+    function withdrawProceeds(address payable to, uint256 tinybars) external virtual {
+        TokenSaleLib.withdrawProceeds(to, tinybars);
+    }
+
+    /// @inheritdoc ITokenSale
     function buy(int64 minTokens) external payable virtual returns (int64 tokens) {
         return TokenSaleLib.buy(minTokens);
     }
@@ -54,7 +59,8 @@ contract TokenSale is ITokenSale {
     ///      `quote(uint256)` 0xed1bd76c
     ///      `saleInfo()` 0x8e3695b8
     ///      `setSalePrice(uint256)` 0x1919fed7
+    ///      `withdrawProceeds(address,uint256)` 0x970ea83e
     function exportSelectors() external pure virtual returns (bytes memory selectors) {
-        selectors = hex"08bf598ddf1d74aeed1bd76c8e3695b81919fed7";
+        selectors = hex"08bf598ddf1d74aeed1bd76c8e3695b81919fed7970ea83e";
     }
 }
