@@ -18,7 +18,7 @@ export const StudioCard = () => {
   const { targetNetwork } = useTargetNetwork();
   const publicClient = usePublicClient({ chainId: targetNetwork.id });
   const { data: diamond } = useDeployedContractInfo({ contractName: "Diamond" });
-  const { data } = useScaffoldReadContract({ contractName: "Diamond", functionName: "facets" });
+  const { data, isError: isLoupeError } = useScaffoldReadContract({ contractName: "Diamond", functionName: "facets" });
   const facets = data as readonly LoupeFacet[] | undefined;
   const names = useSelectorNames();
   const deployed = contracts?.[targetNetwork.id] as Record<string, GenericContract> | undefined;
@@ -46,7 +46,7 @@ export const StudioCard = () => {
   });
 
   const releases = matches?.recognized.map(match => match.catalog.release.address) ?? [];
-  const { data: releaseHasCode } = useQuery({
+  const { data: releaseHasCode, isError: isReleaseError } = useQuery({
     queryKey: ["latticeReleasesWithCode", targetNetwork.id, releases],
     queryFn: async () => {
       const codes = await Promise.all(releases.map(address => publicClient!.getCode({ address })));
@@ -110,7 +110,14 @@ export const StudioCard = () => {
           <span>Could not read Lattice Studio&apos;s catalog. {catalog.error.message}</span>
         </div>
       )}
-      {!catalog.error && !matches && <div className="h-40 rounded-xl bg-base-200 animate-pulse mt-4" aria-hidden />}
+      {isLoupeError && (
+        <div role="alert" className="alert alert-warning text-sm mt-4">
+          <span>The diamond&apos;s loupe did not answer, so its facets cannot be named. Reload.</span>
+        </div>
+      )}
+      {!catalog.error && !isLoupeError && !matches && (
+        <div className="h-40 rounded-xl bg-base-200 animate-pulse mt-4" aria-hidden />
+      )}
 
       {matches && (
         <>
@@ -138,7 +145,9 @@ export const StudioCard = () => {
                     </td>
                     <td className="align-top font-mono text-xs">{entry.storage?.id ?? "none, stateless"}</td>
                     <td className="align-top">
-                      {releaseHasCode === undefined ? (
+                      {isReleaseError ? (
+                        <span className="text-xs text-base-content/60">Could not check</span>
+                      ) : releaseHasCode === undefined ? (
                         <span className="loading loading-dots loading-xs" aria-label="Checking" />
                       ) : releaseHasCode[entry.release.address] ? (
                         <div className="flex flex-col gap-1">
