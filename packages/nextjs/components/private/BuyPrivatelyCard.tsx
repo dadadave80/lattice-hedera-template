@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { Address, Hex, erc20Abi, formatUnits, isAddress, zeroAddress } from "viem";
-import { useAccount, useBalance, useConfig, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useConfig, useReadContract, useWriteContract } from "wagmi";
 import { HederaAddress } from "~~/components/scaffold-hbar";
 import {
   useDeployedContractInfo,
@@ -13,6 +13,7 @@ import {
   useTransactor,
 } from "~~/hooks/scaffold-hbar";
 import { useSale } from "~~/hooks/useSale";
+import { useWatchedBalance } from "~~/hooks/useWatchedBalance";
 import { TINYBAR_DECIMALS, formatAmount, hbarToTinybars, minTokensOut, tinybarsToWeibars } from "~~/utils/sale/units";
 import { AllowedChainIds } from "~~/utils/scaffold-hbar";
 import { simulateContractWriteAndNotifyError } from "~~/utils/scaffold-hbar/contract";
@@ -69,11 +70,7 @@ export const BuyPrivatelyCard = () => {
     functionName: "symbol",
     query: { enabled: sale.isLaunched },
   });
-  const { data: walletBalance } = useBalance({
-    address,
-    chainId: targetNetwork.id,
-    query: { enabled: address !== undefined },
-  });
+  const { data: walletBalance } = useWatchedBalance(address);
   // The relay cannot simulate a transaction from an address Hedera has no account for.
   const isUnfunded = walletBalance?.value === 0n;
 

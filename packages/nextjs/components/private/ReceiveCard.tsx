@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { zeroAddress } from "viem";
-import { useAccount, useBalance, useConfig, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useConfig, useReadContract, useWriteContract } from "wagmi";
 import type { KeysProps } from "~~/components/private/PrivatePurchases";
 import { useDeployedContractInfo, useTargetNetwork, useTransactor } from "~~/hooks/scaffold-hbar";
+import { useWatchedBalance } from "~~/hooks/useWatchedBalance";
 import { AllowedChainIds } from "~~/utils/scaffold-hbar";
 import { simulateContractWriteAndNotifyError } from "~~/utils/scaffold-hbar/contract";
 import { erc6538RegistryAbi } from "~~/utils/stealth/abi";
@@ -26,11 +27,7 @@ export const ReceiveCard = ({ keys, onSign, isSigning }: KeysProps) => {
     args: [address ?? zeroAddress, SCHEME_ID],
     query: { enabled: diamond !== undefined && address !== undefined },
   });
-  const { data: walletBalance } = useBalance({
-    address,
-    chainId: targetNetwork.id,
-    query: { enabled: address !== undefined },
-  });
+  const { data: walletBalance } = useWatchedBalance(address);
   // The relay cannot simulate a transaction from an address Hedera has no account for.
   const isUnfunded = walletBalance?.value === 0n;
 
