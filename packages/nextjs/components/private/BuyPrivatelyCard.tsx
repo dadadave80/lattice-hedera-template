@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { Address, Hex, erc20Abi, formatUnits, zeroAddress } from "viem";
-import { useAccount, useConfig, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useConfig, useEstimateFeesPerGas, useGasPrice, useReadContract, useWriteContract } from "wagmi";
 import { HederaAddress } from "~~/components/scaffold-hbar";
 import {
   useDeployedContractInfo,
@@ -22,8 +22,11 @@ import { SCHEME_ID, decodeMetaAddress, generateStealthAddress, parseRecipient } 
 
 /** Accept up to 1% fewer tokens than quoted if the oracle moves before the transaction lands. */
 const SLIPPAGE_BPS = 100n;
-/** Pays the stealth account's first transaction, the sweep, which cost about 0.03 HBAR on testnet. */
-const DEFAULT_STIPEND_HBAR = "0.5";
+/**
+ * Pays the stealth account's first transaction, the sweep: about 0.035 HBAR to an existing account, about 0.67 HBAR to
+ * an address with no account. What the sweep does not use stays on the stealth address.
+ */
+const DEFAULT_STIPEND_HBAR = "1";
 /** Below this the stealth address may not afford its sweep, and topping it up from a known wallet links the two. */
 const MIN_STIPEND_TINYBARS = 10_000_000n;
 /**
@@ -31,6 +34,7 @@ const MIN_STIPEND_TINYBARS = 10_000_000n;
  * estimate. Hedera charges the gas used, but the payer must hold the whole limit's worth up front, so keep it close.
  */
 const BUY_FOR_GAS = 2_000_000n;
+const BUY_FOR_GAS_USED = 1_433_536n;
 
 /** Buys the sale's token for someone who registered a meta-address, delivering it to a fresh stealth address. */
 export const BuyPrivatelyCard = () => {
@@ -44,7 +48,7 @@ export const BuyPrivatelyCard = () => {
   const [delivered, setDelivered] = useState<Address>();
   const payment = hbarToTinybars(hbar);
   const stipend = hbarToTinybars(stipendHbar);
-  const isStipendTooLow = stipend !== undefined && stipend < MIN_STIPEND_TINYBARS;
+  const isStipendInvalid = stipend === undefined || stipend < MIN_STIPEND_TINYBARS;
 
   const parsedRecipient = parseRecipient(recipient);
   const recipientAddress = parsedRecipient && "address" in parsedRecipient ? parsedRecipient.address : undefined;
@@ -77,6 +81,18 @@ export const BuyPrivatelyCard = () => {
   // The relay cannot simulate a transaction from an address Hedera has no account for.
   const isUnfunded = walletBalance?.value === 0n;
 
+  const { data: gasPrice } = useGasPrice({ chainId: targetNetwork.id });
+  const { data: feesPerGas } = useEstimateFeesPerGas({ chainId: targetNetwork.id });
+  const fee = gasPrice === undefined ? undefined : BUY_FOR_GAS_USED * gasPrice;
+  // The hold is priced at what the wallet offers per gas, which viem sets 20% over the base fee.
+  const required =
+    feesPerGas === undefined
+      ? undefined
+      : tinybarsToWeibars((payment ?? 0n) + (stipend ?? 0n)) +
+        BUY_FOR_GAS * (feesPerGas.maxFeePerGas + feesPerGas.maxPriorityFeePerGas);
+  const isShortOfHbar =
+    !isUnfunded && walletBalance !== undefined && required !== undefined && walletBalance.value < required;
+
   const wagmiConfig = useConfig();
   const transactor = useTransactor();
   const { writeContractAsync } = useWriteContract();
@@ -90,8 +106,8 @@ export const BuyPrivatelyCard = () => {
     metaAddress !== "0x" &&
     metaAddressError === undefined &&
     payment !== undefined &&
-    stipend !== undefined &&
-    !isStipendTooLow &&
+    !isStipendInvalid &&
+    !isShortOfHbar &&
     quote !== undefined;
 
   const buy = async () => {
@@ -123,8 +139,6 @@ export const BuyPrivatelyCard = () => {
     }
   };
 
-  if (sale.isLoading) return null;
-
   return (
     <div className="bg-base-100 rounded-2xl shadow-md p-8 border border-base-300">
       <h2 className="font-bold text-xl m-0">Buy for someone privately</h2>
@@ -133,7 +147,18 @@ export const BuyPrivatelyCard = () => {
         it is theirs. Your address, the amount and the time stay public.
       </p>
 
-      {!sale.isLaunched ? (
+      {sale.token === undefined ? (
+        sale.isError ? (
+          <p className="text-sm text-error m-0 mt-4">
+            Could not read the sale.{" "}
+            <button className="link" onClick={() => sale.refetch()}>
+              Retry
+            </button>
+          </p>
+        ) : (
+          <div className="h-24 rounded-xl bg-base-200 animate-pulse mt-4" aria-hidden />
+        )
+      ) : !sale.isLaunched ? (
         <p className="text-sm m-0 mt-4">
           No token on sale yet. The diamond&apos;s admin launches the sale on the{" "}
           <Link href="/sale" className="link">
@@ -174,7 +199,7 @@ export const BuyPrivatelyCard = () => {
             </label>
           </div>
 
-          {isStipendTooLow && (
+          {isStipendInvalid && (
             <p className="text-sm text-warning mt-3 mb-0">
               The stipend must be at least {formatUnits(MIN_STIPEND_TINYBARS, TINYBAR_DECIMALS)} HBAR: the stealth
               address pays for its sweep from it.
@@ -202,7 +227,15 @@ export const BuyPrivatelyCard = () => {
           <p className="text-sm text-base-content/70 mt-3 mb-4">
             Sends {formatUnits((payment ?? 0n) + (stipend ?? 0n), TINYBAR_DECIMALS)} HBAR (payment + stipend)
             {quote !== undefined &&
-              ` · The recipient receives about ${formatAmount(quote, sale.decimals)} ${symbol ?? ""}`}
+              ` · The recipient receives about ${formatAmount(quote, sale.decimals)} ${symbol ?? ""}` +
+                ` · at least ${formatAmount(minTokensOut(quote, SLIPPAGE_BPS), sale.decimals)} ${symbol ?? ""} (1% slippage)`}
+            {fee !== undefined && required !== undefined && (
+              <>
+                <br />
+                Network fee about {formatAmount(fee, 18, 1)} HBAR. The wallet must hold {formatAmount(required, 18)}{" "}
+                HBAR to send it, because Hedera holds the fee for the whole gas limit up front.
+              </>
+            )}
           </p>
 
           <button className="btn btn-primary btn-sm" onClick={buy} disabled={!canBuy || isBuying}>
@@ -220,6 +253,12 @@ export const BuyPrivatelyCard = () => {
           {isUnfunded && (
             <p className="text-sm text-warning mt-4 mb-0">
               This wallet holds no HBAR, so it cannot pay for a transaction. Fund it first:{" "}
+              <HederaPortalFaucet variant="link" label="Use the faucet" showIcon={false} />
+            </p>
+          )}
+          {isShortOfHbar && (
+            <p className="text-sm text-warning mt-4 mb-0">
+              Not enough HBAR: this purchase needs {formatAmount(required, 18)} HBAR including the network fee.{" "}
               <HederaPortalFaucet variant="link" label="Use the faucet" showIcon={false} />
             </p>
           )}
