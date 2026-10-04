@@ -7,30 +7,33 @@ Bounty: Scaffold-HBAR Template Bounty. Submissions close Sunday 4 October 2026, 
 | Field | Value |
 | --- | --- |
 | Public GitHub repository | https://github.com/dadadave80/lattice-hedera-template |
-| HashScan link | https://hashscan.io/testnet/transaction/0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f (the upgrade to `TokenSaleV2`), or the private purchase, https://hashscan.io/testnet/transaction/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006 |
+| HashScan link | https://hashscan.io/testnet/transaction/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006 (a private purchase: one account pays, and the tokens go to a stealth account the purchase creates; on the mirror node, https://testnet.mirrornode.hedera.com/api/v1/contracts/results/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006), or the upgrade to `TokenSaleV2`, https://hashscan.io/testnet/transaction/0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f |
 | Scaffold command | `npm create scaffold-hbar@latest -- --template dadadave80/lattice-hedera-template` |
+| Hedera Harness | Not used. The template was built with Claude Code and the project's `AGENTS.md`. |
 | Developer experience survey | answered by David, using the notes below |
 
 ## One paragraph
 
-An upgradeable HTS token sale on a Lattice diamond that also sells privately. One contract address creates an
-HTS token through the Hedera Token Service and sells it for HBAR at a USD price read from the Chainlink HBAR/USD
-feed. The showcase is the private purchase: a buyer pays for someone else, and the tokens land on a one-time
-ERC-5564 stealth address that nothing on chain ties to the recipient. The HBAR stipend sent with the purchase
-creates the stealth account (HIP-583) with unlimited automatic token associations (HIP-904), so the token
-arrives in the same transaction, and the stipend later pays the recipient's sweep, so no relayer is needed. The
-diamond is upgraded in place with one `diamondCut` from the app. Every Lattice facet in it, `HTSAdapter` and the
-ERC-6538 registry and ERC-5564 announcer included, is listed in a Lattice Studio recipe file, so a developer
-changes it on a canvas in Studio's Hedera build instead of in Solidity.
+An upgradeable HTS token sale on a Lattice diamond, priced in USD by Chainlink. One contract address creates an
+HTS token through the Hedera Token Service and sells it for HBAR at a USD price: every purchase reads the
+Chainlink HBAR/USD feed, so the price holds in dollars while HBAR moves, and no one re-prices the sale by hand.
+The diamond is upgraded in place with one `diamondCut` from the app. Every Lattice facet in it, `HTSAdapter`
+included, is listed in a Lattice Studio recipe file, so a developer changes it on a canvas in Studio's Hedera
+build instead of in Solidity. What shows Hedera's depth is the private purchase: a buyer pays someone who has no
+account, no token association and no HBAR, in one transaction. The tokens land on a one-time ERC-5564 stealth
+address that nothing on chain ties to the recipient. The HBAR stipend sent with the purchase, 1 HBAR by
+default, creates that account (HIP-583) with unlimited automatic token associations (HIP-904), so the token
+arrives in the same transaction, and the stipend later pays the recipient's sweep, so no relayer is needed. A
+gift, a grant or a payroll run can reach people this way without naming them on chain.
 
 ## Where the rubric is answered
 
 | Criterion | Where |
 | --- | --- |
-| Ecosystem integration (35) | HTS through Lattice's `HTSAdapter`, `TokenSale` and `StealthBuy`; Chainlink through `ChainlinkAdapter`; ERC-5564 and ERC-6538 through Lattice's `ERC5564Announcer` and `ERC6538Registry`; HIP-583 lazy account creation and HIP-904 automatic association for stealth deliveries; HIP-719 association in the app; mirror node log reads for the private inbox; HashScan links; the Scaffold-HBAR hooks, Debug Contracts and CLI manifest. |
+| Ecosystem integration (35) | Chainlink HBAR/USD, and the sale depends on it. The sale is priced in USD while buyers pay HBAR, so every `buy`, `buyFor` and `quote` reads the feed at `0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a` on testnet, through the diamond's `latestAnswer(bytes32)`. Lattice's `ChainlinkAdapter` rejects stale, non-positive and incomplete-round answers and normalizes the price to 18 decimals. Without the feed, the admin would have to re-price the sale by hand as HBAR moves. Pyth can replace it by a change to the recipe; `TokenSale` does not change. A purchase priced by it: https://hashscan.io/testnet/transaction/0xa3e016063a4eefafb6773540c1f5b6efb898abd3eab72bac92356b6bb9e62cc9 |
 | Documentation (30) | `README.md` (with the private-purchase walkthrough and its privacy model), `AGENTS.md`, `packages/foundry/README.md`, natspec on every contract, the custom CLI outro. |
 | Code quality (20) | 66 Forge tests (one re-enters `buyFor` from the stealth address), 24 Node tests, 102 Vitest tests (the stealth-address math checked against vectors from ScopeLift's stealth-address-sdk), CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
-| Hedera service depth (15) | Token creation with the diamond as treasury and `delegatableContractId` keys, treasury transfers with response-code handling, association, tinybar and weibar handling, a live upgrade on testnet, and stealth deliveries that create the recipient's account and associate it inside the purchase, with the hollow account completed by its own first transaction. |
+| Hedera service depth (15) | HTS through Lattice's `HTSAdapter`, `TokenSale` and `StealthBuy`: token creation with the diamond as treasury and `delegatableContractId` keys, treasury transfers with response-code handling, HIP-719 association in the app, tinybar and weibar handling, and a live upgrade on testnet. Stealth deliveries create the recipient's account (HIP-583) and associate it (HIP-904) inside the purchase, and the hollow account is completed by its own first transaction. The recipient finds deliveries through mirror node log reads; ERC-5564 and ERC-6538 come from Lattice's `ERC5564Announcer` and `ERC6538Registry`. |
 
 ## Notes for the developer experience survey
 
@@ -105,6 +108,10 @@ From building private purchases:
   (36,880 gas, about 0.03 HBAR).
 - Hedera charged the gas used, not a share of the gas limit: the reference diamond's purchase was charged gas
   used × 84 tinybars.
+- A token transfer to an address with no account creates that account, and the sender pays for it. A sweep
+  from a stealth account to a new address was estimated at 783,018 gas (about 0.67 HBAR), against 40,682 gas
+  (about 0.035 HBAR) to an existing account. The first default stipend, 0.5 HBAR, could not pay for the
+  first case, so the default is now 1 HBAR and the Inbox checks the sweep's cost before it enables Sweep.
 - The JSON-RPC relay cannot simulate a transaction from an address Hedera has no account for, so the app
   disables a wallet's buttons until it holds HBAR.
 - The mirror node searches contract logs by topic only within a timestamp range of at most 7 days. Reading
