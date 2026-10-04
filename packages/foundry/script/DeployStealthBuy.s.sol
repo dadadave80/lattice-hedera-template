@@ -6,6 +6,7 @@ import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
 import { ERC5564AnnouncerInit } from "@lattice/privacy/ERC5564AnnouncerInit.sol";
 import { ERC6538RegistryInit } from "@lattice/privacy/ERC6538RegistryInit.sol";
+import { VmSafe } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 import { StealthBuy } from "../contracts/StealthBuy.sol";
 import { UpgradeMultiInit } from "../contracts/UpgradeMultiInit.sol";
@@ -38,6 +39,8 @@ contract DeployStealthBuy is BaseDeploy {
         IDiamondCut(diamond).diamondCut(cuts, init, initCalldata);
         vm.stopBroadcast();
 
+        // A run without --broadcast cuts nothing on chain, so the record must not list the facets yet.
+        if (vm.isContext(VmSafe.ForgeContext.ScriptDryRun)) return;
         _addToRecord(path, names, cuts);
         console.log("StealthBuy, ERC6538Registry and ERC5564Announcer cut into", diamond);
     }
