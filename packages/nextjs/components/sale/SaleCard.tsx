@@ -119,6 +119,8 @@ export const SaleCard = () => {
         writeToken({ address: tokenAddress, abi: hrc719Abi, functionName: "associate", chainId: targetNetwork.id }),
       );
       await refetchAssociation();
+    } catch {
+      // The transactor has already shown the error.
     } finally {
       setIsAssociating(false);
     }
@@ -126,13 +128,17 @@ export const SaleCard = () => {
 
   const buy = async () => {
     if (tinybars === undefined || quote === undefined) return;
-    await writeDiamond({
-      functionName: "buy",
-      args: [minTokensOut(quote, SLIPPAGE_BPS)],
-      // The contract sees tinybars; a transaction's value is denominated in weibars.
-      value: tinybarsToWeibars(tinybars),
-    });
-    await refetchToken();
+    try {
+      await writeDiamond({
+        functionName: "buy",
+        args: [minTokensOut(quote, SLIPPAGE_BPS)],
+        // The contract sees tinybars; a transaction's value is denominated in weibars.
+        value: tinybarsToWeibars(tinybars),
+      });
+      await refetchToken();
+    } catch {
+      // The simulation or the transactor has already shown the error.
+    }
   };
 
   if (isDiamondLoading || sale.isLoading) {
