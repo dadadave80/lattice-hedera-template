@@ -4,8 +4,9 @@ import { useState } from "react";
 import { HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { zeroAddress } from "viem";
 import { useAccount, useConfig, useReadContract, useWriteContract } from "wagmi";
+import { CheckCircleIcon, DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 import type { KeysProps } from "~~/components/private/PrivatePurchases";
-import { useDeployedContractInfo, useTargetNetwork, useTransactor } from "~~/hooks/scaffold-hbar";
+import { useCopyToClipboard, useDeployedContractInfo, useTargetNetwork, useTransactor } from "~~/hooks/scaffold-hbar";
 import { useWatchedBalance } from "~~/hooks/useWatchedBalance";
 import { AllowedChainIds } from "~~/utils/scaffold-hbar";
 import { simulateContractWriteAndNotifyError } from "~~/utils/scaffold-hbar/contract";
@@ -35,6 +36,7 @@ export const ReceiveCard = ({ keys, onSign, isSigning }: KeysProps) => {
   const transactor = useTransactor();
   const { writeContractAsync } = useWriteContract();
   const [isRegistering, setIsRegistering] = useState(false);
+  const { copyToClipboard, isCopiedToClipboard } = useCopyToClipboard();
 
   const register = async () => {
     if (!diamond || !metaAddress) return;
@@ -61,8 +63,9 @@ export const ReceiveCard = ({ keys, onSign, isSigning }: KeysProps) => {
     }
   };
 
+  const hasRegistration = registered !== undefined && registered !== "0x";
   const isRegistered = metaAddress !== undefined && registered?.toLowerCase() === metaAddress.toLowerCase();
-  const hasOtherRegistration = metaAddress !== undefined && registered !== undefined && registered !== "0x";
+  const hasOtherRegistration = metaAddress !== undefined && hasRegistration;
 
   return (
     <div className="bg-base-100 rounded-2xl shadow-md p-8 border border-base-300">
@@ -76,13 +79,30 @@ export const ReceiveCard = ({ keys, onSign, isSigning }: KeysProps) => {
       {!address ? (
         <p className="text-sm m-0 mt-4">Connect a wallet to receive privately.</p>
       ) : !keys ? (
-        <button className="btn btn-primary btn-sm mt-4" onClick={onSign} disabled={isSigning}>
-          {isSigning && <span className="loading loading-spinner loading-xs" />}
-          Sign to derive your keys
-        </button>
+        <>
+          {hasRegistration && (
+            <p className="text-sm m-0 mt-4">
+              This wallet has registered a meta-address here. Sign to see it and your inbox.
+            </p>
+          )}
+          <button className="btn btn-primary btn-sm mt-4" onClick={onSign} disabled={isSigning}>
+            {isSigning && <span className="loading loading-spinner loading-xs" />}
+            Sign to derive your keys
+          </button>
+        </>
       ) : (
         <div className="mt-4">
-          <span className="text-sm font-medium">Your stealth meta-address</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Your stealth meta-address</span>
+            <button className="btn btn-ghost btn-xs" onClick={() => metaAddress && copyToClipboard(metaAddress)}>
+              {isCopiedToClipboard ? (
+                <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <DocumentDuplicateIcon className="h-4 w-4" aria-hidden="true" />
+              )}
+              {isCopiedToClipboard ? "Copied" : "Copy"}
+            </button>
+          </div>
           <p className="font-mono text-xs break-all bg-base-200 rounded-lg p-3 m-0 mt-1">{metaAddress}</p>
           <div className="flex flex-wrap items-center gap-3 mt-4">
             {isRegistered ? (
