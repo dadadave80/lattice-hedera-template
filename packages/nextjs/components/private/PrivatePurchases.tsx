@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Address, getAbiItem, toFunctionSelector, zeroAddress } from "viem";
 import { useAccount, useSignMessage } from "wagmi";
 import { DiamondNotDeployed } from "~~/components/diamond/DiamondNotDeployed";
@@ -24,7 +23,11 @@ export type KeysProps = { keys?: StealthKeys; onSign: () => void; isSigning: boo
 export const PrivatePurchases = () => {
   const { address } = useAccount();
   const { data: diamond, isLoading: isDiamondLoading } = useDeployedContractInfo({ contractName: "Diamond" });
-  const { data: buyForFacet, isLoading: isLoupeLoading } = useScaffoldReadContract({
+  const {
+    data: buyForFacet,
+    isLoading: isLoupeLoading,
+    isError: isLoupeError,
+  } = useScaffoldReadContract({
     contractName: "Diamond",
     functionName: "facetAddress",
     args: [BUY_FOR_SELECTOR],
@@ -50,15 +53,27 @@ export const PrivatePurchases = () => {
 
   if (!diamond) return <DiamondNotDeployed />;
 
+  if (isLoupeError) {
+    return (
+      <div role="alert" className="alert alert-error">
+        <span>
+          The diamond&apos;s loupe did not answer, so this page cannot tell whether it sells privately. Reload.
+        </span>
+      </div>
+    );
+  }
+
   if (!buyForFacet || buyForFacet === zeroAddress) {
     return (
       <div className="bg-base-100 rounded-2xl shadow-md p-8 border border-base-300 text-center">
         <h2 className="font-bold text-xl m-0">This diamond does not sell privately yet</h2>
         <p className="text-base-content/70 m-0 mt-2">
-          No facet serves <code>buyFor</code>. Its admin can cut in <code>StealthBuy</code>,{" "}
-          <code>ERC6538Registry</code> and <code>ERC5564Announcer</code> from the{" "}
-          <Link href="/diamond">Diamond page</Link>.
+          No facet serves <code>buyFor</code>. Its admin can add <code>StealthBuy</code>, <code>ERC6538Registry</code>{" "}
+          and <code>ERC5564Announcer</code> with their initializers in one cut:
         </p>
+        <pre className="text-left text-sm bg-base-200 rounded-xl p-4 mt-4 overflow-x-auto">
+          yarn foundry:deploy --file DeployStealthBuy.s.sol --network hedera_testnet
+        </pre>
       </div>
     );
   }

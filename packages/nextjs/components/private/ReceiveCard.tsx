@@ -71,9 +71,9 @@ export const ReceiveCard = ({ keys, onSign, isSigning }: KeysProps) => {
     <div className="bg-base-100 rounded-2xl shadow-md p-8 border border-base-300">
       <h2 className="font-bold text-xl m-0">Receive privately</h2>
       <p className="text-sm text-base-content/70 mt-1">
-        Sign one message to derive a spending key and a viewing key from your wallet. They stay in this tab, and signing
-        again gives the same keys. Register the meta-address built from them, and anyone can buy tokens for you without
-        your address appearing in the purchase.
+        Sign one message to derive a spending key and a viewing key from your wallet. They stay in this tab, and a
+        standard wallet gives the same keys each time you sign. Register the meta-address built from them, and anyone
+        can buy tokens for you without your address appearing in the purchase.
       </p>
 
       {!address ? (
@@ -100,7 +100,9 @@ export const ReceiveCard = ({ keys, onSign, isSigning }: KeysProps) => {
           {!isRegistered && hasOtherRegistration && (
             <p className="text-sm text-warning mt-4 mb-0">
               This wallet registered another meta-address. Registering replaces it. Deliveries already sent to the old
-              one can only be found with the keys that made it.
+              one can only be found with the keys that made it. If this wallet registered from this page before, its
+              signatures change each time, as some smart-contract and MPC wallets&apos; do, and it cannot keep stealth
+              keys here.
             </p>
           )}
           {isUnfunded && (

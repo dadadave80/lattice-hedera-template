@@ -56,7 +56,7 @@ export function decodeAnnouncement(log: MirrorLog): Announcement | undefined {
 
 /**
  * Every scheme-1 announcement `contract` has emitted, oldest first. It reads them all, so the mirror node does not
- * learn which ones the reader is looking for.
+ * learn from this scan which ones the reader is looking for. Reading a match's balances afterwards does reveal it.
  */
 export async function fetchAnnouncements(
   mirrorNodeUrl: string,

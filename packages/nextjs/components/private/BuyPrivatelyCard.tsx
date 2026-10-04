@@ -22,6 +22,8 @@ import { SCHEME_ID, decodeMetaAddress, generateStealthAddress } from "~~/utils/s
 const SLIPPAGE_BPS = 100n;
 /** Pays the stealth account's first transaction, the sweep, which cost about 0.03 HBAR on testnet. */
 const DEFAULT_STIPEND_HBAR = "0.5";
+/** Below this the stealth address may not afford its sweep, and topping it up from a known wallet links the two. */
+const MIN_STIPEND_TINYBARS = 10_000_000n;
 /**
  * Lazy-creating the stealth account and delivering the token used 1,433,536 gas on testnet, only 5% under the relay's
  * estimate. Hedera charges the gas used, but the payer must hold the whole limit's worth up front, so keep it close.
@@ -40,6 +42,7 @@ export const BuyPrivatelyCard = () => {
   const [delivered, setDelivered] = useState<Address>();
   const payment = hbarToTinybars(hbar);
   const stipend = hbarToTinybars(stipendHbar);
+  const isStipendTooLow = stipend !== undefined && stipend < MIN_STIPEND_TINYBARS;
 
   const { data: metaAddress } = useReadContract({
     chainId: targetNetwork.id,
@@ -87,6 +90,7 @@ export const BuyPrivatelyCard = () => {
     metaAddressError === undefined &&
     payment !== undefined &&
     stipend !== undefined &&
+    !isStipendTooLow &&
     quote !== undefined;
 
   const buy = async () => {
@@ -163,6 +167,12 @@ export const BuyPrivatelyCard = () => {
             </label>
           </div>
 
+          {isStipendTooLow && (
+            <p className="text-sm text-warning mt-3 mb-0">
+              The stipend must be at least {formatUnits(MIN_STIPEND_TINYBARS, TINYBAR_DECIMALS)} HBAR: the stealth
+              address pays for its sweep from it.
+            </p>
+          )}
           {isAddress(recipient) && metaAddress === "0x" && (
             <p className="text-sm text-warning mt-3 mb-0">This address has not registered a meta-address here.</p>
           )}
