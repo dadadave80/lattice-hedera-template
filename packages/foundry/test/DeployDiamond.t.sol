@@ -6,18 +6,29 @@ import { IDiamondLoupe } from "@diamond/interfaces/IDiamondLoupe.sol";
 import { Facet, FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { Lattice } from "@lattice/Lattice.sol";
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
+import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { Test } from "forge-std/Test.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
+import { MockAggregatorV3 } from "./mocks/MockAggregatorV3.sol";
+
+/// @dev Opens the step `run()` performs after the diamond exists, so it can be tested without a broadcast.
+contract DeployDiamondHarness is DeployDiamond {
+    function registerHbarUsdFeed(address diamond) external {
+        _registerHbarUsdFeed(diamond);
+    }
+}
 
 contract DeployDiamondTest is Test {
+    address internal constant HBAR_USD_FEED_TESTNET = 0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a;
+
     address internal admin = makeAddr("admin");
-    DeployDiamond internal deployer;
+    DeployDiamondHarness internal deployer;
     string internal recipe;
 
     function setUp() public {
-        deployer = new DeployDiamond();
+        deployer = new DeployDiamondHarness();
         recipe = vm.readFile("test/fixtures/default.recipe.json");
     }
 
@@ -95,6 +106,18 @@ contract DeployDiamondTest is Test {
             )
         );
         deployer.run();
+    }
+
+    function test_registerHbarUsdFeed_registersTheChainlinkFeedUnderTheSalesKey() public {
+        vm.etch(HBAR_USD_FEED_TESTNET, address(new MockAggregatorV3()).code);
+        address diamond = deployer.assemble(recipe, address(deployer));
+
+        deployer.registerHbarUsdFeed(diamond);
+
+        (address feed, uint48 maxStaleness) = IChainlinkAdapter(diamond).getFeed("HBAR/USD");
+        assertEq(feed, HBAR_USD_FEED_TESTNET);
+        // 365 days on testnet, unless your .env sets HBAR_USD_MAX_STALENESS.
+        assertEq(maxStaleness, vm.envOr("HBAR_USD_MAX_STALENESS", uint256(365 days)));
     }
 
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.

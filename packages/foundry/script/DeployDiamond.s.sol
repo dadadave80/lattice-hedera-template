@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import { IDiamondLoupe } from "@diamond/interfaces/IDiamondLoupe.sol";
 import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
+import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { HTSAdapterInit } from "@lattice/tokens/hedera/HTSAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
 import { console } from "forge-std/console.sol";
@@ -26,6 +28,10 @@ contract DeployDiamond is BaseDeploy {
     /// @dev The key the sale reads its HBAR/USD rate under, on whichever oracle facet the recipe cuts.
     bytes32 internal constant HBAR_USD = "HBAR/USD";
 
+    /// @dev Chainlink HBAR/USD price feeds (https://docs.chain.link/data-feeds/price-feeds/addresses?network=hedera).
+    address internal constant HBAR_USD_FEED_TESTNET = 0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a;
+    address internal constant HBAR_USD_FEED_MAINNET = 0xAF685FB45C12b92b5054ccb9313e135525F9b5d5;
+
     /// @dev How many facets and initializers the Hedera layer appends to the recipe's.
     uint256 internal constant HEDERA_FACETS = 2;
     uint256 internal constant HEDERA_INITS = 3;
@@ -40,6 +46,7 @@ contract DeployDiamond is BaseDeploy {
         vm.startBroadcast();
         (, address deployer,) = vm.readCallers();
         diamond = assemble(json, deployer);
+        _registerHbarUsdFeed(diamond);
         vm.stopBroadcast();
 
         console.log("Diamond deployed at", diamond);
@@ -120,5 +127,22 @@ contract DeployDiamond is BaseDeploy {
                 " is in the recipe but not compiled into this project; add its import to contracts/LatticeFacets.sol"
             )
         );
+    }
+
+    // ── after the diamond exists ────────────────────────────────────────────────────────────────────
+
+    /// @dev Chainlink only. Another oracle facet registers its feed with its own arguments (see the README).
+    function _registerHbarUsdFeed(address diamond) internal {
+        if (IDiamondLoupe(diamond).facetAddress(IChainlinkAdapter.registerFeed.selector) == address(0)) {
+            console.log(
+                "No ChainlinkAdapter in this recipe: register an HBAR/USD feed under the key 'HBAR/USD' yourself."
+            );
+            return;
+        }
+        bool mainnet = block.chainid == 295;
+        // Testnet feeds are not kept on a production heartbeat, so the testnet default is deliberately loose.
+        uint256 maxStaleness = vm.envOr("HBAR_USD_MAX_STALENESS", mainnet ? uint256(25 hours) : uint256(365 days));
+        IChainlinkAdapter(diamond)
+            .registerFeed(HBAR_USD, mainnet ? HBAR_USD_FEED_MAINNET : HBAR_USD_FEED_TESTNET, uint48(maxStaleness));
     }
 }
