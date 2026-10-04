@@ -4,6 +4,1855 @@
  */
 import { GenericContractsDeclaration } from "~~/utils/scaffold-hbar/contract";
 
-const deployedContracts = {} as const;
+const deployedContracts = {
+  296: {
+    Diamond: {
+      address: "0x4Eb94355872aB90ab258B940eE98B706dC9B2aa9",
+      abi: [
+        {
+          type: "function",
+          name: "getFeed",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "feed",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "maxStaleness",
+              type: "uint48",
+              internalType: "uint48",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "latestAnswer",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "answerWad",
+              type: "int256",
+              internalType: "int256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "latestAnswerRaw",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "answer",
+              type: "int256",
+              internalType: "int256",
+            },
+            {
+              name: "updatedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "decimals_",
+              type: "uint8",
+              internalType: "uint8",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "registerFeed",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "feed",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "maxStaleness",
+              type: "uint48",
+              internalType: "uint48",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "unregisterFeed",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "event",
+          name: "FeedRegistered",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "feed",
+              type: "address",
+              indexed: false,
+              internalType: "address",
+            },
+            {
+              name: "maxStaleness",
+              type: "uint48",
+              indexed: false,
+              internalType: "uint48",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "FeedUnregistered",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ChainlinkFeedNotRegistered",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ChainlinkInvalidAnswer",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "answer",
+              type: "int256",
+              internalType: "int256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ChainlinkInvalidConfig",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ChainlinkRoundIncomplete",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ChainlinkStaleData",
+          inputs: [
+            {
+              name: "key",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "updatedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maxStaleness",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "function",
+          name: "diamondCut",
+          inputs: [
+            {
+              name: "_diamondCut",
+              type: "tuple[]",
+              internalType: "struct FacetCut[]",
+              components: [
+                {
+                  name: "facetAddress",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "action",
+                  type: "uint8",
+                  internalType: "enum FacetCutAction",
+                },
+                {
+                  name: "functionSelectors",
+                  type: "bytes4[]",
+                  internalType: "bytes4[]",
+                },
+              ],
+            },
+            {
+              name: "_init",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_calldata",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "payable",
+        },
+        {
+          type: "event",
+          name: "AdminUpgradeExecuted",
+          inputs: [
+            {
+              name: "executor",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "facetCutCount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "init",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "DiamondCut",
+          inputs: [
+            {
+              name: "diamondCut",
+              type: "tuple[]",
+              indexed: false,
+              internalType: "struct FacetCut[]",
+              components: [
+                {
+                  name: "facetAddress",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "action",
+                  type: "uint8",
+                  internalType: "enum FacetCutAction",
+                },
+                {
+                  name: "functionSelectors",
+                  type: "bytes4[]",
+                  internalType: "bytes4[]",
+                },
+              ],
+            },
+            {
+              name: "init",
+              type: "address",
+              indexed: false,
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              indexed: false,
+              internalType: "bytes",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "CannotAddFunctionToDiamondThatAlreadyExists",
+          inputs: [
+            {
+              name: "selector",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "CannotAddSelectorsToZeroAddress",
+          inputs: [
+            {
+              name: "selectors",
+              type: "bytes4[]",
+              internalType: "bytes4[]",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "CannotAddThisAddress",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "CannotRemoveFunctionThatDoesNotExist",
+          inputs: [
+            {
+              name: "selector",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "CannotRemoveImmutableFunction",
+          inputs: [
+            {
+              name: "selector",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "CannotReplaceFunctionWithTheSameFunctionFromTheSameFacet",
+          inputs: [
+            {
+              name: "selector",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "EmergencyStopActive",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InitializeDiamondCutReverted",
+          inputs: [
+            {
+              name: "initAddress",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "NoBytecodeAtAddress",
+          inputs: [
+            {
+              name: "contractAddress",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "NoSelectorsGivenToAdd",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoSelectorsProvidedForFacetCut",
+          inputs: [
+            {
+              name: "facetAddress",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "RemoveFacetAddressMustBeZeroAddress",
+          inputs: [
+            {
+              name: "facetAddress",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "function",
+          name: "addGuardian",
+          inputs: [
+            {
+              name: "guardian",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "emergencyResume",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "emergencyStop",
+          inputs: [
+            {
+              name: "reason",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "isGuardian",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "isStopped",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "removeGuardian",
+          inputs: [
+            {
+              name: "guardian",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "stoppedReason",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "event",
+          name: "EmergencyResumed",
+          inputs: [
+            {
+              name: "admin",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "EmergencyStopped",
+          inputs: [
+            {
+              name: "guardian",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "reason",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "GuardianAdded",
+          inputs: [
+            {
+              name: "guardian",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "GuardianRemoved",
+          inputs: [
+            {
+              name: "guardian",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleGranted",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleRevoked",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "EmergencyStopNotActive",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "EmergencyStopUnauthorizedGuardian",
+          inputs: [
+            {
+              name: "caller",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "function",
+          name: "getRoleAdmin",
+          inputs: [
+            {
+              name: "_role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "grantRole",
+          inputs: [
+            {
+              name: "_role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "_account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "hasRole",
+          inputs: [
+            {
+              name: "_role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "_account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "renounceRole",
+          inputs: [
+            {
+              name: "_role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "_callerConfirmation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokeRole",
+          inputs: [
+            {
+              name: "_role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "_account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "error",
+          name: "AccessControlBadConfirmation",
+          inputs: [],
+        },
+        {
+          type: "receive",
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "facetAddress",
+          inputs: [
+            {
+              name: "_functionSelector",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "facetAddresses",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address[]",
+              internalType: "address[]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "facetFunctionSelectors",
+          inputs: [
+            {
+              name: "_facet",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes4[]",
+              internalType: "bytes4[]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "facets",
+          inputs: [],
+          outputs: [
+            {
+              name: "facets_",
+              type: "tuple[]",
+              internalType: "struct Facet[]",
+              components: [
+                {
+                  name: "facetAddress",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "functionSelectors",
+                  type: "bytes4[]",
+                  internalType: "bytes4[]",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "supportsInterface",
+          inputs: [
+            {
+              name: "_interfaceId",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "associateToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "burnToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "serialNumbers",
+              type: "int64[]",
+              internalType: "int64[]",
+            },
+          ],
+          outputs: [
+            {
+              name: "newTotalSupply",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "createFungibleToken",
+          inputs: [
+            {
+              name: "name",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "symbol",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "memo",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "decimals",
+              type: "int32",
+              internalType: "int32",
+            },
+            {
+              name: "initialSupply",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "maxSupply",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "createNonFungibleToken",
+          inputs: [
+            {
+              name: "name",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "symbol",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "memo",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "maxSupply",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "createdTokens",
+          inputs: [],
+          outputs: [
+            {
+              name: "tokens",
+              type: "address[]",
+              internalType: "address[]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "dissociateToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "htsTokenType",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokenType",
+              type: "int32",
+              internalType: "int32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "isAssociated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "associated",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "isHTSToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "isToken",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "mintToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "metadata",
+              type: "bytes[]",
+              internalType: "bytes[]",
+            },
+          ],
+          outputs: [
+            {
+              name: "newTotalSupply",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "serialNumbers",
+              type: "int64[]",
+              internalType: "int64[]",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "transferNFT",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "serialNumber",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "transferToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "transferTokenFrom",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "event",
+          name: "HTSTokenAssociated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "HTSTokenBurned",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "newTotalSupply",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "HTSTokenCreated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "fungible",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "HTSTokenDissociated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "HTSTokenMinted",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "newTotalSupply",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "HTSTokenTransferred",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "from",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "HTSAccountFrozen",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSAccountIsTreasury",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSAllowanceExceeded",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "owner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSCallFailed",
+          inputs: [
+            {
+              name: "selector",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSInsufficientBalance",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSInsufficientGas",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "HTSInvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "HTSKeyNotActive",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSKycNotGranted",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSMaxSupplyReached",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSNonZeroBalance",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSNotAToken",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenAlreadyAssociated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenNoSupplyKey",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenNotAssociated",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "HTSTokenPaused",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "function",
+          name: "buy",
+          inputs: [
+            {
+              name: "minTokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "launchSale",
+          inputs: [
+            {
+              name: "name",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "symbol",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "memo",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "decimals",
+              type: "int32",
+              internalType: "int32",
+            },
+            {
+              name: "supply",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "priceUsd",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "quote",
+          inputs: [
+            {
+              name: "tinybars",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "saleInfo",
+          inputs: [],
+          outputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "decimals",
+              type: "int32",
+              internalType: "int32",
+            },
+            {
+              name: "priceUsd",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "feedKey",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "sold",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "raised",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "setSalePrice",
+          inputs: [
+            {
+              name: "priceUsd",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "withdrawProceeds",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address payable",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "event",
+          name: "ProceedsWithdrawn",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "SaleLaunched",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "decimals",
+              type: "int32",
+              indexed: false,
+              internalType: "int32",
+            },
+            {
+              name: "supply",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "priceUsd",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "SalePriceSet",
+          inputs: [
+            {
+              name: "priceUsd",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TokensPurchased",
+          inputs: [
+            {
+              name: "buyer",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "tokens",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "hbarUsd",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "TokenSaleAlreadyLaunched",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleBuyerNotAssociated",
+          inputs: [
+            {
+              name: "buyer",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleInvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "TokenSaleInvalidDecimals",
+          inputs: [
+            {
+              name: "decimals",
+              type: "int32",
+              internalType: "int32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleInvalidPrice",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "TokenSaleNotLaunched",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "TokenSaleSlippage",
+          inputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "minTokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleTransferFailed",
+          inputs: [
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "TokenSaleWithdrawFailed",
+          inputs: [],
+        },
+      ],
+      inheritedFunctions: {},
+      deployedOnBlock: 41335269,
+    },
+  },
+} as const;
 
 export default deployedContracts satisfies GenericContractsDeclaration;
