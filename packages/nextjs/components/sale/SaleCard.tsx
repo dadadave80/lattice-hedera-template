@@ -9,6 +9,7 @@ import {
   useDeployedContractInfo,
   useScaffoldReadContract,
   useScaffoldWriteContract,
+  useTargetNetwork,
   useTransactor,
 } from "~~/hooks/scaffold-hbar";
 import { useSale } from "~~/hooks/useSale";
@@ -23,6 +24,7 @@ const bonusAbi = parseAbi(["function bonusBps() pure returns (uint256)"]);
 
 export const SaleCard = () => {
   const { address } = useAccount();
+  const { targetNetwork } = useTargetNetwork();
   const sale = useSale();
   const { data: diamond, isLoading: isDiamondLoading } = useDeployedContractInfo({ contractName: "Diamond" });
   const [hbar, setHbar] = useState("");
@@ -78,7 +80,9 @@ export const SaleCard = () => {
   const associate = async () => {
     if (!sale.token) return;
     const tokenAddress = sale.token;
-    await transactor(() => writeToken({ address: tokenAddress, abi: hrc719Abi, functionName: "associate" }));
+    await transactor(() =>
+      writeToken({ address: tokenAddress, abi: hrc719Abi, functionName: "associate", chainId: targetNetwork.id }),
+    );
     await refetchAssociation();
   };
 
