@@ -191,7 +191,7 @@ The deploy script stops before sending anything when a recipe cannot be built, a
 | `yarn foundry:test` | Forge tests against a mock HTS and a mock feed, then the Node tests for the scripts. No chain needed. |
 | `yarn next:test` | Unit tests for the frontend's unit conversion, cut planning and selector names. |
 | `yarn next:dev` | The app, on `http://localhost:3000`. |
-| `yarn foundry:deploy --network hedera_testnet` | Deploys the diamond from the recipe, verifies its contracts on Sourcify and regenerates the frontend's contract file. |
+| `yarn foundry:deploy --network hedera_testnet` | Deploys the diamond from the recipe, regenerates the frontend's contract file, then verifies its contracts on Sourcify. |
 | `yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet` | Deploys the upgrade facet and verifies it. |
 | `yarn foundry:verify:testnet <address> <file>:<Contract>` | Verifies or re-verifies one contract's source on Sourcify by hand. The deploy already does this for each contract it creates. |
 | `yarn diamond:studio` | Prints the Lattice Studio link for the current recipe. |

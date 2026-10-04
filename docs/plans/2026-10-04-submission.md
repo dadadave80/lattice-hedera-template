@@ -79,5 +79,5 @@ Seen during the build on 4 October:
 - Source verification was not part of the build plan. The scaffold's `yarn foundry:verify:testnet` (Sourcify)
   verified all 18 reference contracts with exact runtime matches, including facets deployed through the
   deterministic deployment proxy and the diamond created inside `LatticeFactory`, and HashScan showed "Full
-  Match" right away. The template now runs it for every contract as part of the deploy, so a template user
-  ships verified contracts without an extra command.
+  Match" right away. The deploy now runs the same `forge verify-contract` for every contract it created, so a
+  template user ships verified contracts without an extra command.

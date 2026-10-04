@@ -1,4 +1,4 @@
-// After a deploy to Hedera, shows every contract it created on Sourcify, which HashScan reads for source.
+// After a deploy to Hedera, verifies every contract it created on Sourcify, which HashScan reads for source.
 // A contract that cannot be verified is reported with the command to retry it; it never fails the deploy.
 import { spawn } from "child_process";
 import { readFileSync, readdirSync } from "fs";
@@ -172,8 +172,10 @@ export function verifyContract({
     forge.stderr.on("data", (chunk) => (output += chunk));
     forge.on("error", (error) => resolve({ ok: false, output: error.message }));
     forge.on("close", (code, signal) => {
-      if (code !== 0 && !output.trim()) {
-        output = `forge exited with ${code ?? signal}`;
+      if (signal) {
+        output += `\nforge timed out after ${FORGE_TIMEOUT_MS / 1000} s`;
+      } else if (code !== 0 && !output.trim()) {
+        output = `forge exited with ${code}`;
       }
       resolve({ ok: code === 0, output });
     });
