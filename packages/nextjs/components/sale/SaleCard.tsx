@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { useQueryClient } from "@tanstack/react-query";
-import { erc20Abi, parseAbi, zeroAddress } from "viem";
+import { erc20Abi, formatUnits, parseAbi, zeroAddress } from "viem";
 import { useAccount, useBlockNumber, useReadContract, useReadContracts, useWriteContract } from "wagmi";
 import { DiamondNotDeployed } from "~~/components/diamond/DiamondNotDeployed";
 import {
@@ -170,7 +170,7 @@ export const SaleCard = () => {
         <HbarInput name="hbar-amount" placeholder="0.0" onValueChange={({ valueInNative }) => setHbar(valueInNative)} />
       </label>
       <p className="text-sm text-base-content/70 mt-2 mb-4">
-        Sends {formatAmount(tinybars ?? 0n, TINYBAR_DECIMALS, TINYBAR_DECIMALS)} HBAR
+        Sends {formatUnits(tinybars ?? 0n, TINYBAR_DECIMALS)} HBAR
         {quote !== undefined && ` · You receive about ${formatAmount(quote, sale.decimals)} ${symbol ?? ""}`}
       </p>
 

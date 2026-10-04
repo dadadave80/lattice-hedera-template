@@ -77,7 +77,7 @@ describe("formatPrice", () => {
     expect(formatPrice(parseUnits("0.000099996", 18), 18)).toBe("0.0001");
   });
 
-  it("keeps the whole integer part exact, however large", () => {
+  it("shows every integer digit, rounded to the nearest whole number, however large", () => {
     expect(formatPrice(parseUnits("123456.789", 18), 18)).toBe("123,457");
     expect(formatPrice(parseUnits("12345678901234567890.25", 18), 18)).toBe("12,345,678,901,234,567,890");
   });

@@ -41,7 +41,8 @@ export function formatAmount(value: bigint, decimals: number, maximumFractionDig
 
 /**
  * Formats a price held in its smallest unit with up to `significantDigits` significant digits, so a positive price
- * never reads as 0. The integer part is always shown whole.
+ * never reads as 0. Digits past the last significant one round to zero, so a large price shows no fraction and its
+ * integer part is rounded to the nearest whole number.
  */
 export function formatPrice(value: bigint, decimals: number, significantDigits = 4): string {
   if (value <= 0n) return "0";

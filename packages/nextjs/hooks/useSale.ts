@@ -3,7 +3,7 @@ import { useScaffoldReadContract } from "~~/hooks/scaffold-hbar";
 
 /** The sale's on-chain configuration and totals, read from the diamond's `saleInfo()`. */
 export function useSale() {
-  const { data, isLoading } = useScaffoldReadContract({ contractName: "Diamond", functionName: "saleInfo" });
+  const { data, isLoading, refetch } = useScaffoldReadContract({ contractName: "Diamond", functionName: "saleInfo" });
   const [token, decimals, priceUsd, feedKey, sold, raised] = data ?? [];
 
   return {
@@ -16,5 +16,6 @@ export function useSale() {
     feedKey,
     sold: sold ?? 0n,
     raised: raised ?? 0n,
+    refetch,
   };
 }
