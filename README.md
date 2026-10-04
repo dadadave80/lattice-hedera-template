@@ -138,13 +138,17 @@ A facet marked *recipe* is a Lattice facet named in `packages/foundry/diamond.re
 
 A facet holds no state. Each Lattice module is three files: an interface, a library with all the logic and a storage struct at its own slot, and a facet that forwards to the library. That split is why an upgrade can replace a facet without touching what the diamond remembers.
 
+### Why Chainlink
+
+The sale is priced in USD and paid in HBAR, so the HBAR/USD rate is part of every price. `buy`, `buyFor` and `quote` each read Chainlink's HBAR/USD feed ([`0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a`](https://hashscan.io/testnet/contract/0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a) on testnet) through the diamond, as [this purchase](https://hashscan.io/testnet/transaction/0xa3e016063a4eefafb6773540c1f5b6efb898abd3eab72bac92356b6bb9e62cc9) did. A private purchase prices through `quote`, so both paths pay the same rate. `ChainlinkAdapter` rejects an answer that is stale, not positive or from an incomplete round, and scales the rest to 18 decimals, so a bad answer stops a purchase instead of mispricing it. Without the feed, the admin would have to re-price the token by hand each time HBAR moved. `TokenSale` reads the rate through the diamond's `latestAnswer(bytes32)`, so a recipe can swap in `PythAdapter` without changing the sale.
+
 ### Hedera details this template handles
 
 - **Two units of HBAR.** Inside the EVM, `msg.value` is in tinybars (8 decimals). Over JSON-RPC, a transaction's `value` is in weibars (18 decimals), and the relay converts. The contracts work in tinybars. The app converts in one place, `packages/nextjs/utils/sale/units.ts`.
 - **HTS answers with response codes, not reverts.** `22` is success. `TokenSaleLib` checks the code after every HTS call and reverts with a named error.
 - **Association.** A buyer associates with the token once, through the token's own address ([HIP-719](https://hips.hedera.com/hip/hip-719)), or automatically on its first purchase if the account has a free automatic association slot ([HIP-904](https://hips.hedera.com/hip/hip-904)), as every account created from an EVM address does. A buyer with neither gets `TokenSaleBuyerNotAssociated`.
 - **Token keys on a diamond.** A facet runs inside a `delegatecall`, so HTS only honours `delegatableContractId` keys for it. Lattice's `HTSAdapterLib` sets the admin and supply keys that way when the diamond creates the token.
-- **Oracle freshness.** `ChainlinkAdapter` rejects an answer older than the limit set when the feed was registered. Testnet feeds are not kept on a production heartbeat, so the testnet default is 365 days. On mainnet the default is 25 hours. Set `HBAR_USD_MAX_STALENESS` (seconds) before deploying to choose your own.
+- **Oracle freshness.** `ChainlinkAdapter` rejects an answer older than the limit set when the feed was registered. Chainlink does not guarantee a heartbeat on testnet (this feed updates about hourly), so the testnet default is loose, 365 days, to keep a demo selling if the feed pauses. Mainnet defaults to 25 hours. For anything real, set `HBAR_USD_MAX_STALENESS` (seconds) to the feed's heartbeat before deploying.
 - **Addresses that are not accounts yet.** HBAR sent to an EVM address with no account creates one, a hollow account ([HIP-583](https://hips.hedera.com/hip/hip-583)), with unlimited automatic token associations. Its first signed transaction completes it with the signer's key. `buyFor` creates the stealth account this way, which costs far more gas than a plain purchase, so give it an explicit gas limit.
 
 ## Private purchases
@@ -154,7 +158,7 @@ The **Private** page buys the sale's token for someone else without naming them 
 What each side does:
 
 1. **The recipient registers once.** Under **Receive privately**, they sign one fixed message. The app derives a spending key and a viewing key from the signature and registers the stealth meta-address built from their public keys with `registerKeys(1, metaAddress)` on the diamond's [ERC-6538](https://eips.ethereum.org/EIPS/eip-6538) registry. The keys stay in the open tab, and signing again derives the same ones.
-2. **The payer buys for them.** Under **Buy for someone privately**, they enter the recipient's wallet address and an HBAR amount. The app reads the recipient's meta-address from the registry; the payer can also paste the meta-address itself, bare or as `st:<chain>:0x…`, and then the recipient need not have registered at all. The app derives a fresh stealth address from it with a random ephemeral key (ERC-5564 scheme 1: secp256k1 with view tags), and calls `buyFor` with the payment plus a stipend, 0.5 HBAR by default.
+2. **The payer buys for them.** Under **Buy for someone privately**, they enter the recipient's wallet address and an HBAR amount. The app reads the recipient's meta-address from the registry; the payer can also paste the meta-address itself, bare or as `st:<chain>:0x…`, and then the recipient need not have registered at all. The app derives a fresh stealth address from it with a random ephemeral key (ERC-5564 scheme 1: secp256k1 with view tags), and calls `buyFor` with the payment plus a stipend, 1 HBAR by default.
 3. **The recipient finds and sweeps.** The **Inbox** reads the diamond's `Announcement` events from the mirror node, checks each one against the viewing key in the browser, and lists the stealth addresses that belong to the recipient with their token and HBAR balances. **Sweep** sends the tokens to an address the recipient enters, signed in the browser with the stealth address's own key. The wallet never sees that key.
 
 What `buyFor(stealthAddress, ephemeralPubKey, viewTag, minTokensOut, stipend)` does, in one transaction:
@@ -164,13 +168,15 @@ What `buyFor(stealthAddress, ephemeralPubKey, viewTag, minTokensOut, stipend)` d
 3. Transfers the tokens from the diamond's treasury to the new account through the HTS system contract, checking the response code as `buy` does. The account associates with the token as it receives it.
 4. Emits ERC-5564's `Announcement` with scheme id 1, the payer as `caller`, the ephemeral public key, and 57 bytes of metadata: the view tag, the ERC-20 `transfer` selector `0xa9059cbb`, the token's address and the amount. Then it emits `StealthDelivery` with the tokens, the payment and the stipend.
 
-The sweep is the stealth account's first transaction. Hedera completes the hollow account with the key that signed it, and the stipend pays the gas. A sweep cost about 0.03 HBAR on testnet. The sweep moves the tokens only: the rest of the stipend stays on the stealth address.
+A private purchase emits `StealthDelivery`, not `TokensPurchased`, so an indexer that counts sales reads both events. The `sold` and `raised` totals that `saleInfo` returns include both kinds of purchase. Nothing on chain sets a minimum stipend. A new stealth address needs one, because the stipend creates its account and pays for its sweep; a stipend of 0 suits only an address that already holds HBAR. The Private page asks for at least 0.1 HBAR.
 
-Creating the account makes a private purchase cost more gas than `buy`: 1,433,536 gas, about 1.2 HBAR on testnet, paid by the payer. Hedera charges the gas used, but the payer must hold the whole limit's worth when sending, so the app sets a limit of 2,000,000.
+The sweep is the stealth account's first transaction. Hedera completes the hollow account with the key that signed it, and the stipend pays the gas. A sweep to an account that exists costs about 0.035 HBAR on testnet. A sweep to an address with no account creates that account too, which costs about 0.67 HBAR. That is why the stipend defaults to 1 HBAR, and why the Inbox estimates a sweep's cost and enables **Sweep** only when the stealth address holds enough HBAR. The sweep moves the tokens only: the rest of the stipend stays on the stealth address.
+
+Creating the account makes a private purchase cost more gas than `buy`: 1,433,536 gas, about 1.2 HBAR on testnet, paid by the payer. Hedera charges the gas used, but the payer must hold the whole limit's worth when sending, so the app sets a limit of 2,000,000. The Private page shows the fee before you buy and keeps **Buy privately** disabled until the wallet holds the payment, the stipend and the limit's worth of gas.
 
 ### Why this is simple on Hedera
 
-A stealth address is new by design, so nothing exists at it yet. On Hedera that would mean two steps for the recipient before a token could reach them: an address is not an account until something creates it, and an HTS token reaches only an account associated with it. HIP-583 and HIP-904 move both steps into the payer's transaction. The HBAR that creates the account also pays for its first transaction, so the recipient needs no relayer and no HBAR of their own to move the tokens. The rest is what the sale already uses: HTS for the token and the treasury transfer, and the Chainlink HBAR/USD feed for the price.
+A stealth address is new by design, so nothing exists at it yet. On Hedera that would mean two steps for the recipient before a token could reach them: an address is not an account until something creates it, and an HTS token reaches only an account associated with it. HIP-583 and HIP-904 move both steps into the payer's transaction. The HBAR that creates the account also pays for its first transaction, so the recipient needs no relayer and no HBAR of their own to move the tokens. That is what makes a gift, a grant or a payroll run to people new to Hedera one transaction for the payer and nothing for them. The rest is what the sale already uses: HTS for the token and the treasury transfer, and the Chainlink HBAR/USD feed for the price.
 
 ### Privacy model
 
@@ -195,7 +201,7 @@ The reference diamond predates `StealthBuy`, so its admin added private purchase
 | The recipient `0x061Af5392697EDD4BD08f326f7BeCaE1fe035b64` registers its meta-address | [`0xa4388212f333018c91fcc91a8cee97602ede279f8aa4a1337ef6ce915b1ae2be`](https://hashscan.io/testnet/transaction/0xa4388212f333018c91fcc91a8cee97602ede279f8aa4a1337ef6ce915b1ae2be) |
 | Another account buys 2 HBAR of tokens for it with `buyFor` (1,433,536 gas). The recipient's address appears nowhere in it | [`0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006`](https://hashscan.io/testnet/transaction/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006) |
 | The stealth account it created | [`0xE34b6e5Ac8FEc6e07c3Fc5846E53A444CFCfC326`](https://hashscan.io/testnet/account/0xE34b6e5Ac8FEc6e07c3Fc5846E53A444CFCfC326) |
-| The sweep to a fresh account, signed by the stealth account (36,892 gas) | [`0x70f7a839d211ed29ad559f13e38ed8f61283e4757385653b8c55ee15964fbbad`](https://hashscan.io/testnet/transaction/0x70f7a839d211ed29ad559f13e38ed8f61283e4757385653b8c55ee15964fbbad) |
+| The sweep to a new account funded with 1 HBAR just before, signed by the stealth account (36,892 gas) | [`0x70f7a839d211ed29ad559f13e38ed8f61283e4757385653b8c55ee15964fbbad`](https://hashscan.io/testnet/transaction/0x70f7a839d211ed29ad559f13e38ed8f61283e4757385653b8c55ee15964fbbad) |
 
 The same flow ran through the **Private** page with the app's burner wallet: [register](https://hashscan.io/testnet/transaction/0x8854f0c12b59d2696e104945b3f979f721d50667db24c7b4cace4e404bbcb8a1), [buy privately](https://hashscan.io/testnet/transaction/0x7a48b780617ed5483847437e9c85da97c96d836a18729faea5c72ee5ec4511d4), [sweep](https://hashscan.io/testnet/transaction/0xfe92af609c889f07a393afd1ca48777a14aac3660ce99a86cf98c5feba2deae9).
 
@@ -294,6 +300,14 @@ The deploy script stops before sending anything when a recipe cannot be built, a
 3. For a new deployment, add the facet next to `TokenSale` and `StealthBuy` in `build()` in `DeployDiamond.s.sol` and raise `HEDERA_FACETS`, 2 today (and `HEDERA_INITS`, also 2, if the facet has an initializer). For a live diamond, deploy it and cut it from the Diamond page. A facet whose initializer must run goes in with a script instead, as `DeployStealthBuy.s.sol` does: on a live diamond a Lattice initializer runs only through `UpgradeMultiInit`.
 4. Test it through the diamond, as `test/SaleTestBase.sol` does.
 
+Before you deploy it, check:
+
+- **The storage slot.** `cast index-erc7201 "<namespace>"` prints the slot for a namespace. Put the same namespace in the struct's `@custom:storage-location erc7201:` comment, as `TokenSaleLib` does.
+- **The selectors.** `forge inspect <Facet> methodIdentifiers` lists what `exportSelectors()` must return, minus `exportSelectors()` itself. A one-line test with `_assertExportsItsAbi` from `test/SaleTestBase.sol` fails when the two disagree.
+- **The price.** Price through the diamond with `ITokenSale(address(this)).quote(tinybars)`, as `StealthBuyLib` does, so the facet gets the live Chainlink rate and any bonus an upgrade adds.
+- **The payout.** Send tokens with `TokenSaleLib._transferFromTreasury`, which checks the HTS response code.
+- **The file name.** Name the file after the contract. The deploy builds the app's `Diamond` ABI from `out/<Name>.sol/<Name>.json`.
+
 ## Commands
 
 | Command | What it does |
@@ -321,7 +335,8 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 | `Sender account not found` in the app | The connected wallet has never received HBAR, so Hedera has no account for it. The sale card disables its buttons until it holds some. Fund it from the faucet or another wallet; a first transfer to a new address creates the account and needs about 600,000 gas. |
 | `DeployDiamond: this diamond needs Hedera` | You deployed to a local chain. This diamond needs HTS and a Chainlink feed: use `--network hedera_testnet`. |
 | `TokenSaleBuyerNotAssociated` | The buyer has not associated with the token. Use the Associate button. |
-| `ChainlinkStaleData` | The feed's last update is older than the registered limit. Register the feed again with a larger `maxStaleness`. |
+| `ChainlinkStaleData` | The feed's last update is older than the registered limit. On testnet the feed has paused: register it again with a larger `maxStaleness`. On mainnet the price is genuinely stale, so do not loosen the limit: stop the sale with `emergencyStop(reason)` from a guardian (the deploy makes the admin one; on an older diamond, `addGuardian` first), and resume with `emergencyResume()` once the feed updates. |
+| `TokenSaleTransferFailed(178)` | HTS code 178, `INSUFFICIENT_TOKEN_BALANCE`: the sale has sold out, and the treasury holds fewer tokens than the purchase asks for. The admin restocks it with `HTSAdapter`'s `mintToken`. |
 | `HTSCallFailed` on `launchSale` | The HBAR sent did not cover the creation fee. Send more with `--value`. |
 | `INSUFFICIENT_GAS` on `buyFor` | `buyFor` creates the stealth account and associates it with the token, which takes far more gas than a plain purchase. The **Private** page sets 2,000,000; it used 1,433,536 on testnet. From a script or another app, set the limit yourself with `--gas-limit 2000000`. Hedera charges only the gas used, but the payer must hold the limit's worth when sending. |
 | "This diamond does not sell privately yet" on the Private page | No facet serves `buyFor`: the diamond was deployed before private purchases. Its admin runs `yarn foundry:deploy --file DeployStealthBuy.s.sol --network hedera_testnet`. |
@@ -331,12 +346,16 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 
 - Not audited. Lattice is pre-1.0 and unaudited too. Do not put real value behind this without a review.
 - There is no local-chain mode. HTS and the Chainlink feed exist only on Hedera, so contract tests run against mocks and the app runs against testnet.
-- The deploy script finishes the setup only when the deploying account is the diamond's admin. A recipe can name another admin, such as a Safe, in place of `{"$ref": "deployer"}`. The diamond still deploys, but registering the Chainlink feed needs `DEFAULT_ADMIN_ROLE`, so the script skips it and prints the `registerFeed` call for that admin to send. `launchSale` must come from that admin too: it needs `DEFAULT_ADMIN_ROLE` and the `HTS_MANAGER_ROLE` that `HTSAdapterInit` grants.
+- The deploy script finishes the setup only when the deploying account is the diamond's admin. A recipe can name another admin, such as a Safe, in place of `{"$ref": "deployer"}`. The diamond still deploys, but registering the Chainlink feed and adding a guardian need `DEFAULT_ADMIN_ROLE`, so the script skips both and prints the `registerFeed` call for that admin to send. That admin adds a guardian with `addGuardian`. `launchSale` must come from that admin too: it needs `DEFAULT_ADMIN_ROLE` and the `HTS_MANAGER_ROLE` that `HTSAdapterInit` grants.
+- The deploying admin is the diamond's emergency guardian. Any guardian can halt `buy` and `buyFor` with `emergencyStop`, and only an admin resumes them with `emergencyResume`. Add guardians with `addGuardian`, and remove the deployer with `removeGuardian` once others hold the role.
+- A purchase is rounded down to whole units of the token, its smallest denomination. The HBAR worth less than one unit stays in the diamond as proceeds.
 - Lattice Studio's Hedera support is a preview build of its `feat/hedera` branch, and its catalog is provisional: built from Lattice commit `6c8db45`, not from a tagged release. `TokenSale` and `StealthBuy` are never on its sheet (see "Customize in Lattice Studio").
 - Private purchases hide the recipient and nothing else. Read the privacy model under "Private purchases" before relying on them.
+- A sweep moves the tokens only. What is left of the stipend stays on the stealth address, and the app does not sweep it yet.
 - The Inbox reads every announcement the diamond has made since it was created, one week of history per mirror node search, so a scan takes longer as the diamond ages.
 - The app's upgrade card plans Add and Replace only. A function the outgoing facet serves that the new facet does not export stays routed to the old facet, and the preview lists it under "Still served by the outgoing facet". Removing them is a separate Remove cut, for example from Debug Contracts or with `cast`.
 - The package manager is Yarn.
+- Not built yet: SaucerSwap liquidity for the sale's proceeds, and the Hedera Schedule Service (`HSSAdapter` is in Lattice) for a scheduled close or vesting.
 
 ## Links
 

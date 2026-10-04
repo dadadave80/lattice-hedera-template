@@ -47,9 +47,10 @@ From the repository root the same commands are `yarn foundry:deploy ...`.
 - Use Foundry 1.7.1 (`foundryup --install v1.7.1`). Foundry 1.8 cannot run `forge script` against Hedera's relay yet.
 - The deployer must be an account that exists on Hedera: generate a keystore with `yarn account:generate` and fund its address from the [faucet](https://portal.hedera.com/faucet).
 - The Makefile passes `--slow --legacy`: one transaction at a time, with legacy gas pricing, which is what the relay expects.
+- When the deploying account is the diamond's admin, `DeployDiamond.s.sol` registers the HBAR/USD feed and makes that account an emergency guardian, which can halt the sale with `emergencyStop`.
 - Lattice facets (every facet the recipe names, `HTSAdapter`, `ERC6538Registry` and `ERC5564Announcer` included) are deployed at deterministic addresses, through CreateX or the deterministic deployment proxy where the chain has one, so a facet that is already on the network at its address is reused instead of deployed again. `TokenSale`, `StealthBuy` and the initializers use plain `CREATE`, so every run deploys them again.
 - `DeployStealthBuy.s.sol` cuts `StealthBuy`, `ERC6538Registry` and `ERC5564Announcer` into the diamond named in `deployments/diamond/<chainId>.json`, with one `diamondCut` that runs their initializers through `UpgradeMultiInit`. The broadcasting account must hold the diamond's `DEFAULT_ADMIN_ROLE`. A diamond deployed from the current recipe already has the three facets, and the cut reverts there.
-- On `hedera_testnet` and `hedera_mainnet`, once the script has run and the ABIs are written, `scripts-js/verifyDeployment.js` verifies on Sourcify every contract in `broadcast/<Script>/<chainId>/run-latest.json`, six at a time, with `forge verify-contract`. It skips a contract Sourcify already has, which is how a reused facet is passed over. A contract that fails to verify is printed with the `yarn foundry:verify:testnet` (or `:mainnet`) command to retry it, and the deploy still succeeds. Localhost is not verified.
+- On `hedera_testnet` and `hedera_mainnet`, once the script has run and the ABIs are written, `scripts-js/verifyDeployment.js` verifies on Sourcify every contract in `broadcast/<Script>/<chainId>/run-latest.json`, six at a time, with `forge verify-contract`. It skips a contract Sourcify already has, which is how a reused facet is passed over. A contract that fails to verify is printed with the `yarn foundry:verify:testnet` (or `:mainnet`) command to retry it, and the deploy still succeeds.
 
 A deploy writes three things:
 
@@ -65,5 +66,5 @@ A deploy writes three things:
 
 | Variable | Use |
 | --- | --- |
-| `HBAR_USD_MAX_STALENESS` | Seconds the diamond accepts between Chainlink updates. Read at deploy time. Defaults to 365 days on testnet and 25 hours on mainnet. |
+| `HBAR_USD_MAX_STALENESS` | Seconds the diamond accepts between Chainlink updates. Read at deploy time. Defaults to 365 days on testnet, where Chainlink does not guarantee a heartbeat, and 25 hours on mainnet. For anything real, set it to the feed's heartbeat. |
 | `LOCALHOST_KEYSTORE_ACCOUNT`, `HEDERA_RPC_URL`, `ALCHEMY_API_KEY` | Scaffold-HBAR defaults. This template does not need them changed. |
