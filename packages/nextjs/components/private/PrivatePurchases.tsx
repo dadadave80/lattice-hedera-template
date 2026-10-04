@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Address, getAbiItem, toFunctionSelector, zeroAddress } from "viem";
 import { useAccount, useSignMessage } from "wagmi";
 import { DiamondNotDeployed } from "~~/components/diamond/DiamondNotDeployed";
@@ -74,6 +75,13 @@ export const PrivatePurchases = () => {
         <pre className="text-left text-sm bg-base-200 rounded-xl p-4 mt-4 overflow-x-auto">
           yarn foundry:deploy --file DeployStealthBuy.s.sol --network hedera_testnet
         </pre>
+        <p className="text-base-content/70 m-0 mt-4">
+          The sale itself is on the{" "}
+          <Link href="/sale" className="link">
+            Sale page
+          </Link>
+          .
+        </p>
       </div>
     );
   }

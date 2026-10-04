@@ -1,11 +1,5 @@
 import type { NextPage } from "next";
 import { PrivatePurchases } from "~~/components/private/PrivatePurchases";
-import { getMetadata } from "~~/utils/scaffold-hbar/getMetadata";
-
-export const metadata = getMetadata({
-  title: "Private",
-  description: "Buy the sale's token for someone without naming them on chain, with ERC-5564 stealth addresses",
-});
 
 const Private: NextPage = () => {
   return (

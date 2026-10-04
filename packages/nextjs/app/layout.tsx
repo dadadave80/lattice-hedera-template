@@ -7,7 +7,8 @@ import { getMetadata } from "~~/utils/scaffold-hbar/getMetadata";
 
 export const metadata = getMetadata({
   title: "Lattice Hedera Template",
-  description: "An upgradeable HTS token sale on a Lattice diamond, priced by Chainlink",
+  description:
+    "An upgradeable HTS token sale on a Lattice diamond, priced by Chainlink, with private purchases to ERC-5564 stealth addresses",
 });
 
 const ScaffoldHbarApp = ({ children }: { children: React.ReactNode }) => {
