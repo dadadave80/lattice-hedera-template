@@ -76,3 +76,8 @@ Seen during the build on 4 October:
   same entries; the template adds none. A new scaffold starts with these alerts.
 - GitHub's archive applies `export-ignore`, so `template.json`, `docs/` and `scripts/` stay out of a project
   scaffolded from the published repository.
+- Source verification was not part of the build plan. The scaffold's `yarn foundry:verify:testnet` (Sourcify)
+  verified all 18 reference contracts with exact runtime matches, including facets deployed through the
+  deterministic deployment proxy and the diamond created inside `LatticeFactory`, and HashScan showed "Full
+  Match" right away. Nothing in the deploy flow runs it, so a template user who skips it ships unverified
+  contracts.
