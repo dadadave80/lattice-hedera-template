@@ -7,8 +7,10 @@ import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
 import { DEFAULT_ADMIN_ROLE } from "@lattice/access/libraries/AccessControlLib.sol";
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
+import { IEmergencyStop } from "@lattice/interfaces/security/IEmergencyStop.sol";
 import { PythAdapterInit } from "@lattice/oracles/pyth/PythAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
+import { VmSafe } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 import { StealthBuy } from "../contracts/StealthBuy.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
@@ -42,7 +44,8 @@ contract DeployDiamond is BaseDeploy {
 
     bytes4 internal constant DIAMOND_CUT = 0x1f931c1c;
 
-    /// @dev How many facets and initializers the Hedera layer appends to the recipe's.
+    /// @dev How many facets and initializers the Hedera layer appends to the recipe's. A facet added in `build()`
+    ///      without raising `HEDERA_FACETS` stops it with an array out-of-bounds panic (0x32).
     uint256 internal constant HEDERA_FACETS = 2;
     uint256 internal constant HEDERA_INITS = 2;
 
@@ -59,11 +62,17 @@ contract DeployDiamond is BaseDeploy {
             build(json, deployer);
         diamond = _assembleMulti(cuts, inits, calls);
         _registerHbarUsdFeed(diamond, deployer);
+        _addGuardian(diamond, deployer);
         vm.stopBroadcast();
 
         string[] memory notes = warnings(json, cuts);
         for (uint256 i; i < notes.length; ++i) {
             console.log(string.concat("Warning: ", notes[i]));
+        }
+        // A run without --broadcast deploys nothing, so there is no diamond to record.
+        if (vm.isContext(VmSafe.ForgeContext.ScriptDryRun)) {
+            console.log("Dry run: nothing deployed, record not written");
+            return diamond;
         }
         _writeRecord(diamond, names, cuts);
         console.log("Diamond deployed at", diamond);
@@ -97,6 +106,7 @@ contract DeployDiamond is BaseDeploy {
         cuts[base.length] = _cut(address(new TokenSale()));
         names[base.length + 1] = "StealthBuy";
         cuts[base.length + 1] = _cut(address(new StealthBuy()));
+        _requireProjectFacets(names, base.length);
         _requireDistinctSelectors(names, cuts);
 
         inits = new address[](steps + HEDERA_INITS);
@@ -248,6 +258,32 @@ contract DeployDiamond is BaseDeploy {
         );
     }
 
+    /// @dev The Hedera layer is wired by hand in `build()`, so it is checked here, before anything is broadcast.
+    ///      `scripts-js/generateTsAbis.js` reads each recorded facet's ABI from `out/<name>.sol/<name>.json`, which
+    ///      exists only when the facet's file is named after its contract.
+    function _requireProjectFacets(string[] memory names, uint256 first) internal view {
+        for (uint256 i = first; i < names.length; ++i) {
+            require(
+                bytes(names[i]).length != 0,
+                "DeployDiamond: HEDERA_FACETS is higher than the number of facets build() appends after the recipe's"
+            );
+            require(
+                vm.exists(string.concat("out/", names[i], ".sol/", names[i], ".json")),
+                string.concat(
+                    "DeployDiamond: ",
+                    names[i],
+                    " has no artifact at out/",
+                    names[i],
+                    ".sol/",
+                    names[i],
+                    ".json; put the contract in contracts/",
+                    names[i],
+                    ".sol, a file named after it"
+                )
+            );
+        }
+    }
+
     /// @dev A diamond routes each selector to exactly one facet. Checking here names both facets, where the
     ///      diamond's own error would name neither.
     function _requireDistinctSelectors(string[] memory names, FacetCut[] memory cuts) internal pure {
@@ -321,6 +357,24 @@ contract DeployDiamond is BaseDeploy {
             return;
         }
         IChainlinkAdapter(diamond).registerFeed(HBAR_USD, feed, uint48(maxStaleness));
+    }
+
+    /// @dev Nobody can call `emergencyStop` until an admin adds a guardian, so the deploy makes `caller` one.
+    function _addGuardian(address diamond, address caller) internal {
+        if (IDiamondLoupe(diamond).facetAddress(IEmergencyStop.addGuardian.selector) == address(0)) {
+            console.log("No EmergencyStop in this recipe: nothing can pause the sale.");
+            return;
+        }
+        if (
+            IDiamondLoupe(diamond).facetAddress(IAccessControl.hasRole.selector) != address(0)
+                && !IAccessControl(diamond).hasRole(DEFAULT_ADMIN_ROLE, caller)
+        ) {
+            console.log(
+                "The recipe makes another account admin, so no guardian is set. From that account, call addGuardian(<address>) on the diamond."
+            );
+            return;
+        }
+        IEmergencyStop(diamond).addGuardian(caller);
     }
 
     /// @dev What `scripts-js/generateTsAbis.js` needs to give the frontend one `Diamond` contract: the address,
