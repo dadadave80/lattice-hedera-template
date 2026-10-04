@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Address, createWalletClient, erc20Abi, http, isAddress, isAddressEqual } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { useAccount, useBalance, useReadContracts } from "wagmi";
+import { useAccount, useBalance, useBlockNumber, useReadContracts } from "wagmi";
 import type { KeysProps } from "~~/components/private/PrivatePurchases";
 import { HederaAddress } from "~~/components/scaffold-hbar";
 import { useDeployedContractInfo, useTargetNetwork, useTransactor } from "~~/hooks/scaffold-hbar";
@@ -115,6 +115,14 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
     address: delivery.stealthAddress,
     chainId: targetNetwork.id,
   });
+  const { data: blockNumber } = useBlockNumber({ watch: true, chainId: targetNetwork.id });
+
+  // The relay's reads trail consensus by a few seconds, so a read right after the sweep can still show the tokens.
+  useEffect(() => {
+    refetchToken();
+    refetchHbar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockNumber]);
 
   const isToRegisteringWallet = address !== undefined && isAddress(to) && isAddressEqual(to, address);
   const canSweep =
@@ -139,7 +147,6 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
         }),
       );
       setTo("");
-      await Promise.all([refetchToken(), refetchHbar()]);
     } catch {
       // The transactor has already shown the error.
     } finally {
