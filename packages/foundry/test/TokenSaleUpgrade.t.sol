@@ -62,4 +62,8 @@ contract TokenSaleUpgradeTest is SaleTestBase {
         assertEq(_selectorAt(exported, 0), ITokenSale.buy.selector);
         assertEq(_selectorAt(exported, 6), TokenSaleV2.bonusBps.selector);
     }
+
+    function test_exportSelectors_matchesTheAbi() public view {
+        _assertExportsItsAbi("TokenSaleV2", v2.exportSelectors());
+    }
 }
