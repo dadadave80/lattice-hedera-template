@@ -106,6 +106,13 @@ export const SaleCard = () => {
   // A wallet that holds the token is associated, even when the read has not caught up with a buy that associated it.
   const needsAssociation =
     address !== undefined && isAssociated === false && !(typeof owned === "bigint" && owned > 0n);
+  // The wallet balance is in weibars, the amount typed in tinybars.
+  const isShortOfHbar =
+    !isUnfunded &&
+    tinybars !== undefined &&
+    walletBalance !== undefined &&
+    tinybarsToWeibars(tinybars) > walletBalance.value;
+  const isShortOfTokens = quote !== undefined && typeof available === "bigint" && quote > available;
 
   const transactor = useTransactor();
   const { writeContractAsync: writeToken } = useWriteContract();
@@ -204,7 +211,14 @@ export const SaleCard = () => {
           className="btn btn-primary btn-sm"
           onClick={buy}
           disabled={
-            !address || isUnfunded || tinybars === undefined || quote === undefined || isBuying || isStopped === true
+            !address ||
+            isUnfunded ||
+            isShortOfHbar ||
+            isShortOfTokens ||
+            tinybars === undefined ||
+            quote === undefined ||
+            isBuying ||
+            isStopped === true
           }
         >
           {needsAssociation ? "2. Buy" : "Buy"}
@@ -217,6 +231,19 @@ export const SaleCard = () => {
       </div>
 
       {isStopped && <p className="text-sm text-warning mt-4 mb-0">Sales are paused.</p>}
+      {isShortOfHbar && (
+        <p className="text-sm text-warning mt-4 mb-0">
+          Not enough HBAR: this wallet holds {formatAmount(walletBalance.value, walletBalance.decimals)} HBAR, and the
+          network fee comes on top.
+        </p>
+      )}
+      {isShortOfTokens && (
+        <p className="text-sm text-warning mt-4 mb-0">
+          {available === 0n
+            ? "The sale is sold out."
+            : `Only ${formatAmount(available, sale.decimals)} ${symbol ?? "tokens"} left.`}
+        </p>
+      )}
 
       {isUnfunded ? (
         <p className="text-sm text-warning mt-4 mb-0">
