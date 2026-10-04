@@ -15,6 +15,24 @@ import { SaleTestBase } from "./SaleTestBase.sol";
 /// @dev An address with code that takes no HBAR.
 contract RefusesHbar { }
 
+/// @dev A stealth address that buys again from inside the stipend callback, once, with HBAR it already holds.
+contract ReentersFromReceive {
+    IStealthBuy internal immutable DIAMOND;
+    uint256 internal immutable REENTRY_PAYMENT;
+    bool internal reentered;
+
+    constructor(address diamond, uint256 reentryPayment) {
+        DIAMOND = IStealthBuy(diamond);
+        REENTRY_PAYMENT = reentryPayment;
+    }
+
+    receive() external payable {
+        if (reentered) return;
+        reentered = true;
+        DIAMOND.buyFor{ value: REENTRY_PAYMENT }(address(this), hex"02", 0xcd, 0, 0);
+    }
+}
+
 contract StealthBuyTest is SaleTestBase {
     /// @dev ERC-5564's event, written out so the test does not take its signature from the code under test.
     bytes32 internal constant ANNOUNCEMENT = keccak256("Announcement(uint256,address,address,bytes,bytes)");
@@ -162,6 +180,26 @@ contract StealthBuyTest is SaleTestBase {
         (,,,, int64 sold, uint256 raised) = sale.saleInfo();
         assertEq(sold, 4 * ONE_TOKEN + 40 * ONE_TOKEN);
         assertEq(raised, ONE_HBAR + PAYMENT);
+    }
+
+    function test_buyFor_staysConsistentWhenTheStealthAddressReenters() public {
+        address token = _launch();
+        address attacker = address(new ReentersFromReceive(diamond, ONE_HBAR));
+        hts.associateToken(attacker, token);
+        vm.deal(attacker, ONE_HBAR);
+        uint256 diamondBefore = diamond.balance;
+
+        int64 outer = _buyFor(attacker, 0, STIPEND);
+
+        int64 inner = sale.quote(ONE_HBAR);
+        assertEq(inner, 4 * ONE_TOKEN, "the re-entry bought at the same price");
+        (,,,, int64 sold, uint256 raised) = sale.saleInfo();
+        assertEq(sold, outer + inner, "sold counts both purchases once");
+        assertEq(raised, PAYMENT + ONE_HBAR, "raised counts both payments and no stipend");
+        assertEq(hts.balanceOf(token, attacker), outer + inner, "the attacker holds exactly both deliveries");
+        assertEq(hts.balanceOf(token, diamond), SUPPLY - (outer + inner), "the treasury paid out exactly what was sold");
+        assertEq(diamond.balance - diamondBefore, PAYMENT + ONE_HBAR, "the diamond kept both payments, not the stipend");
+        assertEq(attacker.balance, STIPEND, "the attacker spent its own HBAR and kept the stipend");
     }
 
     function test_exportSelectors_matchesTheAbi() public {
