@@ -29,6 +29,8 @@ contract DeployDiamondTest is Test {
     bytes4 internal constant LATEST_ANSWER = 0x084d4783;
     bytes4 internal constant UNREGISTER_FEED = 0x2a589908;
     address internal constant HBAR_USD_FEED_TESTNET = 0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a;
+    string internal constant MISSING_HTS_ADAPTER =
+        "Recipe: TokenSale creates its token through HTSAdapter, with the roles HTSAdapterInit grants; add HTSAdapter and its HTSAdapterInit step in Lattice Studio";
 
     address internal admin = makeAddr("admin");
     DeployDiamondHarness internal deployer;
@@ -52,8 +54,8 @@ contract DeployDiamondTest is Test {
     function test_defaultRecipe_buildsTheBaseAndTheHederaLayer() public {
         (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
 
-        assertEq(names.length, 9, "seven base facets, HTSAdapter and TokenSale");
-        assertEq(names[7], "HTSAdapter");
+        assertEq(names.length, 9, "eight base facets, HTSAdapter among them, and TokenSale");
+        assertEq(names[1], "HTSAdapter");
         assertEq(names[8], "TokenSale");
 
         Facet[] memory facets = IDiamondLoupe(diamond).facets();
@@ -61,7 +63,7 @@ contract DeployDiamondTest is Test {
 
         uint256 baseSelectors;
         for (uint256 i; i < cuts.length; ++i) {
-            if (i < 7) baseSelectors += cuts[i].functionSelectors.length;
+            if (i < 8) baseSelectors += cuts[i].functionSelectors.length;
             for (uint256 j; j < cuts[i].functionSelectors.length; ++j) {
                 assertEq(
                     IDiamondLoupe(diamond).facetAddress(cuts[i].functionSelectors[j]),
@@ -70,7 +72,7 @@ contract DeployDiamondTest is Test {
                 );
             }
         }
-        assertEq(baseSelectors, 24, "the selector count Lattice Studio plans for the default base");
+        assertEq(baseSelectors, 37, "the selector count Lattice Studio plans for the default base");
     }
 
     function test_defaultRecipe_makesTheAdminTheAdminOfEveryLayer() public {
@@ -103,7 +105,7 @@ contract DeployDiamondTest is Test {
     function test_exclude_leavesTheSelectorOutOfTheDiamond() public {
         (address diamond, string[] memory names,) = _diamond(vm.readFile("test/fixtures/more-facets.recipe.json"));
 
-        assertEq(names.length, 11, "nine base facets plus the Hedera layer");
+        assertEq(names.length, 11, "ten base facets plus the Hedera layer");
         assertEq(IDiamondLoupe(diamond).facetAddress(UNREGISTER_FEED), address(0));
         assertTrue(IDiamondLoupe(diamond).facetAddress(LATEST_ANSWER) != address(0));
     }
@@ -172,13 +174,20 @@ contract DeployDiamondTest is Test {
         deployer.build("{}", admin);
     }
 
-    function test_build_acceptsARecipeWithNoInitSteps() public {
+    function test_build_revertsWhenTheRecipeLacksHTSAdapter() public {
+        string memory json = vm.replace(recipe, '"HTSAdapter",', "");
+
+        vm.expectRevert(bytes(MISSING_HTS_ADAPTER));
+        deployer.build(json, admin);
+    }
+
+    function test_build_revertsWhenNoStepInitializesHTSAdapter() public {
+        // With no init steps, nothing grants the roles TokenSale needs to create its token.
         string memory json =
             vm.replace(vm.readFile("test/fixtures/pyth.recipe.json"), '"kind": "steps"', '"kind": "none"');
 
-        (,, address[] memory inits,) = deployer.build(json, admin);
-
-        assertEq(inits.length, 3, "only the Hedera layer's initializers");
+        vm.expectRevert(bytes(MISSING_HTS_ADAPTER));
+        deployer.build(json, admin);
     }
 
     function test_warnings_areEmptyForTheDefaultRecipe() public {
@@ -188,14 +197,14 @@ contract DeployDiamondTest is Test {
     }
 
     function test_warnings_flagAnotherCatalogAndAMissingCutFacet() public {
-        string memory json = vm.replace(recipe, '"dev-f4a32c8"', '"v9.9.9"');
+        string memory json = vm.replace(recipe, '"dev-6c8db45"', '"v9.9.9"');
         json = vm.replace(json, '"AccessControlDiamondCut",', "");
         (, FacetCut[] memory cuts,,) = deployer.build(json, admin);
 
         string[] memory notes = deployer.warnings(json, cuts);
 
         assertEq(notes.length, 2);
-        assertEq(notes[0], "the recipe is pinned to catalog v9.9.9 but this template's Lattice matches dev-f4a32c8");
+        assertEq(notes[0], "the recipe is pinned to catalog v9.9.9 but this template's Lattice matches dev-6c8db45");
         assertEq(notes[1], "no facet in the recipe serves diamondCut, so this diamond cannot be upgraded");
     }
 

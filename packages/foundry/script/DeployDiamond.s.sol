@@ -6,7 +6,6 @@ import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { PythAdapterInit } from "@lattice/oracles/pyth/PythAdapterInit.sol";
-import { HTSAdapterInit } from "@lattice/tokens/hedera/HTSAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
 import { console } from "forge-std/console.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
@@ -18,17 +17,18 @@ import "../contracts/LatticeFacets.sol";
 
 /// @title DeployDiamond
 /// @notice Builds this project's diamond in two layers and deploys it in one transaction.
-///         - The Lattice base comes from `diamond.recipe.json`, a file in Lattice Studio's recipe format.
-///           Change the base by editing that file (or exporting over it from Studio), never by editing cuts here.
-///         - The Hedera layer is fixed below: `HTSAdapter` and this project's `TokenSale` facet. It stays out
-///           of the recipe because Studio's catalog does not carry the Hedera facets yet.
+///         - The Lattice base comes from `diamond.recipe.json`, a file in Lattice Studio's recipe format, and
+///           includes `HTSAdapter`. Change the base by editing that file (or exporting over it from Studio),
+///           never by editing cuts here.
+///         - The Hedera layer is fixed below: this project's `TokenSale` facet. It stays out of the recipe
+///           because it is not one of Lattice's facets, so Studio's catalog does not carry it.
 /// @dev `build` and `assemble` take the recipe as a string and never broadcast, so tests call them directly.
 contract DeployDiamond is BaseDeploy {
     string internal constant RECIPE = "diamond.recipe.json";
 
     /// @dev The Studio catalog the pinned Lattice sources match. A recipe from another catalog still deploys;
     ///      it only earns a warning.
-    string internal constant CATALOG_TAG = "dev-f4a32c8";
+    string internal constant CATALOG_TAG = "dev-6c8db45";
 
     /// @dev The key the sale reads its HBAR/USD rate under, on whichever oracle facet the recipe cuts.
     bytes32 internal constant HBAR_USD = "HBAR/USD";
@@ -40,8 +40,8 @@ contract DeployDiamond is BaseDeploy {
     bytes4 internal constant DIAMOND_CUT = 0x1f931c1c;
 
     /// @dev How many facets and initializers the Hedera layer appends to the recipe's.
-    uint256 internal constant HEDERA_FACETS = 2;
-    uint256 internal constant HEDERA_INITS = 3;
+    uint256 internal constant HEDERA_FACETS = 1;
+    uint256 internal constant HEDERA_INITS = 2;
 
     function run() external returns (address diamond) {
         require(
@@ -66,7 +66,8 @@ contract DeployDiamond is BaseDeploy {
         console.log("Diamond deployed at", diamond);
     }
 
-    /// @notice Deploys the diamond described by `json` plus the Hedera layer, with `admin` holding every role.
+    /// @notice Deploys the diamond described by `json` plus the Hedera layer, with `admin` standing for the
+    ///         recipe's `{"$ref": "deployer"}`.
     function assemble(string memory json, address admin) public returns (address diamond) {
         (, FacetCut[] memory cuts, address[] memory inits, bytes[] memory calls) = build(json, admin);
         diamond = _assembleMulti(cuts, inits, calls);
@@ -79,6 +80,9 @@ contract DeployDiamond is BaseDeploy {
         returns (string[] memory names, FacetCut[] memory cuts, address[] memory inits, bytes[] memory calls)
     {
         string[] memory base = _facetNames(json);
+        uint256 steps = _stepCount(json);
+        _requireHtsAdapter(json, base, steps);
+
         names = new string[](base.length + HEDERA_FACETS);
         cuts = new FacetCut[](base.length + HEDERA_FACETS);
         for (uint256 i; i < base.length; ++i) {
@@ -86,24 +90,19 @@ contract DeployDiamond is BaseDeploy {
             names[i] = base[i];
             cuts[i] = _cutExcept(_facet(base[i]), _excludedFor(json, base[i]));
         }
-        names[base.length] = "HTSAdapter";
-        cuts[base.length] = _cut(_facet("HTSAdapter"));
-        names[base.length + 1] = "TokenSale";
-        cuts[base.length + 1] = _cut(address(new TokenSale()));
+        names[base.length] = "TokenSale";
+        cuts[base.length] = _cut(address(new TokenSale()));
         _requireDistinctSelectors(names, cuts);
 
-        uint256 steps = _stepCount(json);
         inits = new address[](steps + HEDERA_INITS);
         calls = new bytes[](steps + HEDERA_INITS);
         for (uint256 i; i < steps; ++i) {
             (inits[i], calls[i]) = _initStep(json, i, admin);
         }
-        inits[steps] = address(new HTSAdapterInit());
-        calls[steps] = abi.encodeCall(HTSAdapterInit.init, (admin));
-        inits[steps + 1] = address(new TokenSaleInit());
-        calls[steps + 1] = abi.encodeCall(TokenSaleInit.init, (HBAR_USD));
-        inits[steps + 2] = address(new DiamondIntrospectionInit());
-        calls[steps + 2] = abi.encodeCall(DiamondIntrospectionInit.initUpgradeable, ());
+        inits[steps] = address(new TokenSaleInit());
+        calls[steps] = abi.encodeCall(TokenSaleInit.init, (HBAR_USD));
+        inits[steps + 1] = address(new DiamondIntrospectionInit());
+        calls[steps + 1] = abi.encodeCall(DiamondIntrospectionInit.initUpgradeable, ());
     }
 
     /// @notice Problems that do not stop a deploy but that the developer should hear about.
@@ -197,6 +196,24 @@ contract DeployDiamond is BaseDeploy {
             string.concat(
                 "Recipe: ", spec, " takes arguments this template cannot encode yet; add an encoder in _initStep"
             )
+        );
+    }
+
+    /// @dev `TokenSale.launchSale` creates the token through `HTSAdapterLib`, which needs `HTS_MANAGER_ROLE`, and
+    ///      `HTSAdapterInit` is what grants it.
+    function _requireHtsAdapter(string memory json, string[] memory facets, uint256 steps) internal view {
+        bool cut;
+        for (uint256 i; i < facets.length; ++i) {
+            if (_eq(facets[i], "HTSAdapter")) cut = true;
+        }
+        bool initialized;
+        for (uint256 i; i < steps; ++i) {
+            string memory spec = vm.parseJsonString(json, string.concat(".init.steps[", vm.toString(i), "].spec"));
+            if (_eq(spec, "HTSAdapterInit")) initialized = true;
+        }
+        require(
+            cut && initialized,
+            "Recipe: TokenSale creates its token through HTSAdapter, with the roles HTSAdapterInit grants; add HTSAdapter and its HTSAdapterInit step in Lattice Studio"
         );
     }
 
