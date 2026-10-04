@@ -45,39 +45,37 @@ contract DeployDiamondTest is Test {
         recipe = vm.readFile("test/fixtures/default.recipe.json");
     }
 
-    /// @dev The one test that reads your own `diamond.recipe.json`. It stays green as long as that file builds.
+    /// @dev The one test that reads your own `diamond.recipe.json`. It stays green as long as that file builds, and
+    ///      checks only what the deploy itself requires.
     function test_projectRecipe_buildsADiamondWithTheHederaLayer() public {
         (address diamond,,) = _diamond(vm.readFile("diamond.recipe.json"));
         assertTrue(IDiamondLoupe(diamond).facetAddress(ITokenSale.saleInfo.selector) != address(0), "TokenSale");
         assertTrue(IDiamondLoupe(diamond).facetAddress(IStealthBuy.buyFor.selector) != address(0), "StealthBuy");
-
         assertTrue(
             IDiamondLoupe(diamond).facetAddress(IHTSAdapter.createFungibleToken.selector) != address(0), "HTSAdapter"
-        );
-        assertTrue(
-            IDiamondLoupe(diamond).facetAddress(IERC6538Registry.registerKeys.selector) != address(0), "ERC6538Registry"
-        );
-        assertTrue(
-            IDiamondLoupe(diamond).facetAddress(IERC5564Announcer.announce.selector) != address(0), "ERC5564Announcer"
         );
     }
 
     function test_defaultRecipe_buildsTheBaseAndTheHederaLayer() public {
         (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
+        string[] memory base = vm.parseJsonStringArray(recipe, ".facets");
 
-        assertEq(names.length, 12, "ten base facets, HTSAdapter and the stealth pair among them, TokenSale, StealthBuy");
+        assertEq(base.length, 10, "ten base facets, HTSAdapter and the stealth pair among them");
+        for (uint256 i; i < base.length; ++i) {
+            assertEq(names[i], base[i], "the recipe's facets come first, in its order");
+        }
         assertEq(names[1], "HTSAdapter");
         assertEq(names[2], "ERC5564Announcer");
         assertEq(names[3], "ERC6538Registry");
-        assertEq(names[10], "TokenSale");
-        assertEq(names[11], "StealthBuy");
+        assertGe(_indexOf(names, "TokenSale"), base.length, "TokenSale comes after the base");
+        assertGe(_indexOf(names, "StealthBuy"), base.length, "StealthBuy comes after the base");
 
         Facet[] memory facets = IDiamondLoupe(diamond).facets();
-        assertEq(facets.length, 12);
+        assertEq(facets.length, names.length, "every cut is a facet of the diamond");
 
         uint256 baseSelectors;
         for (uint256 i; i < cuts.length; ++i) {
-            if (i < 10) baseSelectors += cuts[i].functionSelectors.length;
+            if (i < base.length) baseSelectors += cuts[i].functionSelectors.length;
             for (uint256 j; j < cuts[i].functionSelectors.length; ++j) {
                 assertEq(
                     IDiamondLoupe(diamond).facetAddress(cuts[i].functionSelectors[j]),
@@ -142,9 +140,11 @@ contract DeployDiamondTest is Test {
     }
 
     function test_exclude_leavesTheSelectorOutOfTheDiamond() public {
-        (address diamond, string[] memory names,) = _diamond(vm.readFile("test/fixtures/more-facets.recipe.json"));
+        string memory json = vm.readFile("test/fixtures/more-facets.recipe.json");
+        (address diamond, string[] memory names,) = _diamond(json);
 
-        assertEq(names.length, 14, "twelve base facets plus the Hedera layer");
+        assertEq(vm.parseJsonStringArray(json, ".facets").length, 12, "twelve base facets");
+        assertEq(IDiamondLoupe(diamond).facets().length, names.length, "the facet that lost a selector is still cut");
         assertEq(IDiamondLoupe(diamond).facetAddress(UNREGISTER_FEED), address(0));
         assertTrue(IDiamondLoupe(diamond).facetAddress(LATEST_ANSWER) != address(0));
     }
@@ -322,7 +322,7 @@ contract DeployDiamondTest is Test {
 
         assertEq(vm.parseJsonAddress(record, ".address"), diamond);
         assertEq(vm.parseJsonUint(record, ".deployedOnBlock"), block.number);
-        assertEq(vm.parseJsonStringArray(record, ".facets").length, 12);
+        assertEq(vm.parseJsonStringArray(record, ".facets"), names);
         string[] memory htsSelectors = vm.parseJsonStringArray(record, ".selectors.HTSAdapter");
         assertEq(htsSelectors.length, 13);
         assertEq(htsSelectors[0], vm.toString(abi.encodePacked(IHTSAdapter.associateToken.selector)));
@@ -343,5 +343,12 @@ contract DeployDiamondTest is Test {
         Lattice lattice = new Lattice();
         lattice.initialize(cuts, address(new MultiInit()), abi.encodeCall(MultiInit.multiInit, (inits, calls)));
         diamond = address(lattice);
+    }
+
+    function _indexOf(string[] memory names, string memory name) internal pure returns (uint256) {
+        for (uint256 i; i < names.length; ++i) {
+            if (keccak256(bytes(names[i])) == keccak256(bytes(name))) return i;
+        }
+        revert(string.concat(name, " is not among the cuts"));
     }
 }

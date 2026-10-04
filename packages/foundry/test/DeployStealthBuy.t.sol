@@ -30,12 +30,14 @@ contract DeployStealthBuyTest is SaleTestBase {
         token = _launch();
     }
 
-    /// @dev The recipe before the stealth pair joined it, and `TokenSale` as the only facet of the Hedera layer.
+    /// @dev The recipe before the stealth pair joined it, and the Hedera layer without `StealthBuy`.
     function _assembleDiamond() internal override returns (address) {
-        (, FacetCut[] memory cuts, address[] memory inits, bytes[] memory calls) =
+        (string[] memory names, FacetCut[] memory all, address[] memory inits, bytes[] memory calls) =
             deployer.build(vm.readFile("test/fixtures/before-stealth.recipe.json"), admin);
-        assembly ("memory-safe") {
-            mstore(cuts, sub(mload(cuts), 1)) // StealthBuy, the last cut
+        FacetCut[] memory cuts = new FacetCut[](all.length - 1);
+        uint256 n;
+        for (uint256 i; i < all.length; ++i) {
+            if (keccak256(bytes(names[i])) != keccak256("StealthBuy")) cuts[n++] = all[i];
         }
         Lattice lattice = new Lattice();
         lattice.initialize(cuts, address(new MultiInit()), abi.encodeCall(MultiInit.multiInit, (inits, calls)));
@@ -43,8 +45,8 @@ contract DeployStealthBuyTest is SaleTestBase {
     }
 
     function test_plan_addsTheThreeFacetsInOneCut() public {
-        assertEq(IDiamondLoupe(diamond).facets().length, 9, "the diamond starts without them");
-        assertEq(IDiamondLoupe(diamond).facetAddress(IStealthBuy.buyFor.selector), address(0));
+        uint256 before = IDiamondLoupe(diamond).facets().length;
+        assertEq(IDiamondLoupe(diamond).facetAddress(IStealthBuy.buyFor.selector), address(0), "no StealthBuy yet");
 
         (string[] memory names, FacetCut[] memory cuts, address init, bytes memory initCalldata) = script.plan();
         vm.prank(admin);
@@ -54,7 +56,7 @@ contract DeployStealthBuyTest is SaleTestBase {
         assertEq(names[0], "StealthBuy");
         assertEq(names[1], "ERC6538Registry");
         assertEq(names[2], "ERC5564Announcer");
-        assertEq(IDiamondLoupe(diamond).facets().length, 12);
+        assertEq(IDiamondLoupe(diamond).facets().length, before + 3);
         for (uint256 i; i < cuts.length; ++i) {
             assertEq(uint8(cuts[i].action), uint8(FacetCutAction.Add));
             for (uint256 j; j < cuts[i].functionSelectors.length; ++j) {
