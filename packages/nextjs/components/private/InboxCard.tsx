@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Address, createWalletClient, erc20Abi, http, isAddress, isAddressEqual } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { useAccount, useBalance, useBlockNumber, useReadContracts } from "wagmi";
+import { useAccount, useBalance, useBlockNumber, usePublicClient, useReadContracts } from "wagmi";
 import type { KeysProps } from "~~/components/private/PrivatePurchases";
 import { HederaAddress } from "~~/components/scaffold-hbar";
 import { useDeployedContractInfo, useTargetNetwork, useTransactor } from "~~/hooks/scaffold-hbar";
@@ -13,6 +13,7 @@ import scaffoldConfig, { ScaffoldConfig } from "~~/scaffold.config";
 import { formatAmount } from "~~/utils/sale/units";
 import { Announcement, deliveriesTo, fetchAnnouncements, mirrorNodeUrl } from "~~/utils/stealth/announcements";
 import { StealthKeys, computeStealthPrivateKey } from "~~/utils/stealth/stealthAddress";
+import { sweepFee } from "~~/utils/stealth/sweepCost";
 
 /** Finds the deliveries made to the holder of the keys, and sweeps each one with its own stealth key. */
 export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
@@ -29,6 +30,8 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
     queryKey: ["stealthAnnouncements", targetNetwork.id, diamond?.address],
     queryFn: () => fetchAnnouncements(mirrorNodeUrl(targetNetwork.id), diamond?.address as Address),
     enabled: keys !== undefined && diamond !== undefined,
+    // Each fetch rescans every announcement since the diamond was created, so poll slowly.
+    refetchInterval: 60_000,
   });
 
   const deliveries = useMemo(
@@ -49,7 +52,7 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
       </div>
       <p className="text-sm text-base-content/70 mt-1">
         Reads every announcement made through this diamond from the mirror node, and checks each one with your viewing
-        key here in the browser.
+        key here in the browser. New deliveries can take up to a minute to appear.
       </p>
 
       {!address ? (
@@ -74,7 +77,9 @@ export const InboxCard = ({ keys, onSign, isSigning }: KeysProps) => {
           </ul>
           <p className="text-xs text-base-content/60 mt-4 mb-0">
             Sweeping into the wallet that registered your meta-address links it to the delivery on chain. Sweep to an
-            address nothing else ties to you to keep them apart.
+            address nothing else ties to you to keep them apart. The network fee comes out of the delivery&apos;s HBAR:
+            about 0.035 HBAR to an account that already exists on Hedera, about 0.67 HBAR to an address with no account,
+            because the sweep creates it. HBAR left over stays at the stealth address.
           </p>
         </>
       )}
@@ -116,6 +121,7 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
     chainId: targetNetwork.id,
   });
   const { data: blockNumber } = useBlockNumber({ watch: true, chainId: targetNetwork.id });
+  const publicClient = usePublicClient({ chainId: targetNetwork.id });
 
   // The relay's reads trail consensus by a few seconds, so a read right after the sweep can still show the tokens.
   useEffect(() => {
@@ -124,14 +130,37 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockNumber]);
 
-  const isToRegisteringWallet = address !== undefined && isAddress(to) && isAddressEqual(to, address);
+  const destination = isAddress(to) ? to : undefined;
+  const { data: fee, isLoading: isFeeLoading } = useQuery({
+    queryKey: ["sweepFee", targetNetwork.id, sale.token, delivery.stealthAddress, destination, String(tokenBalance)],
+    queryFn: () =>
+      sweepFee(publicClient!, {
+        token: sale.token!,
+        from: delivery.stealthAddress,
+        to: destination!,
+        amount: tokenBalance as bigint,
+      }),
+    enabled:
+      publicClient !== undefined &&
+      sale.token !== undefined &&
+      destination !== undefined &&
+      typeof tokenBalance === "bigint" &&
+      tokenBalance > 0n,
+  });
+  // When the estimate fails, Sweep stays enabled: sending estimates again, and the transactor shows why it fails.
+  const isFeeShort = fee !== undefined && hbarBalance !== undefined && fee > hbarBalance.value;
+
+  const isToRegisteringWallet =
+    address !== undefined && destination !== undefined && isAddressEqual(destination, address);
   const canSweep =
     sale.isLaunched &&
-    isAddress(to) &&
+    destination !== undefined &&
     typeof tokenBalance === "bigint" &&
     tokenBalance > 0n &&
     hbarBalance !== undefined &&
-    hbarBalance.value > 0n;
+    hbarBalance.value > 0n &&
+    !isFeeLoading &&
+    !isFeeShort;
 
   const sweep = async () => {
     if (!sale.token || !isAddress(to) || typeof tokenBalance !== "bigint") return;
@@ -175,10 +204,18 @@ const DeliveryRow = ({ delivery, keys }: { delivery: Announcement; keys: Stealth
             onChange={event => setTo(event.target.value.trim())}
           />
           <button className="btn btn-secondary btn-sm" onClick={sweep} disabled={!canSweep || isSweeping}>
-            {isSweeping && <span className="loading loading-spinner loading-xs" />}
+            {(isSweeping || isFeeLoading) && <span className="loading loading-spinner loading-xs" />}
             Sweep
           </button>
         </div>
+      )}
+      {isFeeShort && (
+        <p className="text-sm text-warning mt-3 mb-0">
+          This delivery holds {formatAmount(hbarBalance.value, hbarBalance.decimals)} HBAR, and to send its sweep to
+          this address it must hold {formatAmount(fee, hbarBalance.decimals)} HBAR for the network fee. A sweep to an
+          address with no Hedera account costs the most, because it creates the account. Sweep to an account that
+          already exists on Hedera, or fund the new address from the faucet first.
+        </p>
       )}
       {isToRegisteringWallet && (
         <div role="alert" className="alert alert-warning text-sm mt-3">
