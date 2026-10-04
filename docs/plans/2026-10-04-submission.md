@@ -24,7 +24,7 @@ developer changes it on a canvas instead of in Solidity.
 | --- | --- |
 | Ecosystem integration (35) | HTS through Lattice's `HTSAdapter` and `TokenSale`; Chainlink through `ChainlinkAdapter`; HIP-719 association in the app; HashScan links; the Scaffold-HBAR hooks, Debug Contracts and CLI manifest. |
 | Documentation (30) | `README.md`, `AGENTS.md`, `packages/foundry/README.md`, natspec on every contract, the custom CLI outro. |
-| Code quality (20) | 43 Forge tests, 12 Node tests, 33 Vitest tests, CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
+| Code quality (20) | 43 Forge tests, 24 Node tests, 33 Vitest tests, CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
 | Hedera service depth (15) | Token creation with the diamond as treasury and `delegatableContractId` keys, treasury transfers with response-code handling, association, tinybar and weibar handling, a live upgrade on testnet. |
 
 ## Notes for the developer experience survey
@@ -79,5 +79,5 @@ Seen during the build on 4 October:
 - Source verification was not part of the build plan. The scaffold's `yarn foundry:verify:testnet` (Sourcify)
   verified all 18 reference contracts with exact runtime matches, including facets deployed through the
   deterministic deployment proxy and the diamond created inside `LatticeFactory`, and HashScan showed "Full
-  Match" right away. Nothing in the deploy flow runs it, so a template user who skips it ships unverified
-  contracts.
+  Match" right away. The template now runs it for every contract as part of the deploy, so a template user
+  ships verified contracts without an extra command.

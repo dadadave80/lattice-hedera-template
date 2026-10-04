@@ -71,7 +71,8 @@ The deploy command:
 2. adds the Hedera layer, `HTSAdapter` and this project's `TokenSale`;
 3. creates and initializes the diamond in one transaction, with your account as admin;
 4. registers the Chainlink HBAR/USD feed;
-5. rewrites `packages/nextjs/contracts/deployedContracts.ts`, so the app now points at your diamond.
+5. rewrites `packages/nextjs/contracts/deployedContracts.ts`, so the app now points at your diamond;
+6. verifies every contract it created on Sourcify, so HashScan shows the source. A contract that is already verified is skipped.
 
 Then create the token. Either import the deployer key into your wallet (`yarn foundry:account:reveal-pk`) and use the **Admin** card on the sale page, or send it from the terminal:
 
@@ -85,14 +86,7 @@ cast send <your diamond> \
 
 That creates 1,000,000 MTK with 8 decimals, priced at $0.05 each. The token is created in its own transaction because Foundry simulates a deploy script locally first, and no local EVM can run the Hedera Token Service.
 
-To show your contracts' source on HashScan, verify them on Sourcify, one contract at a time:
-
-```bash
-yarn foundry:verify:testnet <address> contracts/TokenSale.sol:TokenSale
-yarn foundry:verify:testnet <your diamond> lib/lattice/src/Lattice.sol:Lattice
-```
-
-`packages/foundry/broadcast/Deploy.s.sol/296/run-latest.json` lists every contract the deploy created, with its name and address. Lattice's contracts live under `lib/lattice/src/`. The diamond is created by `LatticeFactory`, so it appears under that call's `additionalContracts`.
+Verification runs as part of the deploy. If a contract fails to verify, the deploy still succeeds and prints the command to retry that contract.
 
 ## How it works
 
@@ -197,9 +191,9 @@ The deploy script stops before sending anything when a recipe cannot be built, a
 | `yarn foundry:test` | Forge tests against a mock HTS and a mock feed, then the Node tests for the scripts. No chain needed. |
 | `yarn next:test` | Unit tests for the frontend's unit conversion, cut planning and selector names. |
 | `yarn next:dev` | The app, on `http://localhost:3000`. |
-| `yarn foundry:deploy --network hedera_testnet` | Deploys the diamond from the recipe and regenerates the frontend's contract file. |
-| `yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet` | Deploys the upgrade facet. |
-| `yarn foundry:verify:testnet <address> <file>:<Contract>` | Verifies one contract's source on Sourcify, which HashScan reads. |
+| `yarn foundry:deploy --network hedera_testnet` | Deploys the diamond from the recipe, verifies its contracts on Sourcify and regenerates the frontend's contract file. |
+| `yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet` | Deploys the upgrade facet and verifies it. |
+| `yarn foundry:verify:testnet <address> <file>:<Contract>` | Verifies or re-verifies one contract's source on Sourcify by hand. The deploy already does this for each contract it creates. |
 | `yarn diamond:studio` | Prints the Lattice Studio link for the current recipe. |
 | `yarn foundry:account:generate` | Creates a deployer keystore. |
 | `yarn lint` | Lints the frontend and checks Solidity and script formatting. |

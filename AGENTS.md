@@ -29,8 +29,9 @@ yarn next:check-types
 yarn next:build
 
 yarn foundry:account:generate                                                  # create a deployer keystore
-yarn foundry:deploy --network hedera_testnet                                   # deploy the diamond from the recipe
-yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet    # deploy the upgrade facet
+yarn foundry:deploy --network hedera_testnet                                   # deploy the diamond from the recipe, then verify each contract on Sourcify
+yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet    # deploy the upgrade facet and verify it
+yarn foundry:verify:testnet <address> <file>:<Contract>                        # verify or re-verify one contract by hand (a failed verification does not fail the deploy)
 yarn diamond:studio                                                            # print the Lattice Studio link for the recipe
 ```
 
@@ -52,6 +53,7 @@ Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_se
 | `packages/foundry/test/SaleTestBase.sol` | Test base: builds the diamond through the deploy script, with HTS and the feed mocked. |
 | `packages/foundry/test/fixtures/` | Recipes frozen for tests. Tests do not depend on the project's own recipe, except one. |
 | `packages/foundry/scripts-js/diamondAbi.js` | Merges facet ABIs into the `Diamond` ABI. |
+| `packages/foundry/scripts-js/verifyDeployment.js` | Runs after a Hedera deploy: verifies on Sourcify every contract the broadcast record lists. |
 | `packages/foundry/lib/lattice` | Lattice, pinned by tag in `foundry.lock`. Do not edit. |
 | `packages/nextjs/app/page.tsx` | Sale page: `components/sale/SaleCard.tsx` and `AdminCard.tsx`. |
 | `packages/nextjs/app/diamond/page.tsx` | Diamond page: `components/diamond/FacetTable.tsx` and `UpgradeCard.tsx`. |

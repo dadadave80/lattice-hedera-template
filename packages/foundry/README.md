@@ -28,7 +28,7 @@ Tests need no chain. `test/SaleTestBase.sol` builds the diamond through the depl
 | `test/TokenSale.t.sol` | Launching the sale, quoting, buying, association, slippage, HTS response codes, admin functions, the storage slot, `exportSelectors()`. |
 | `test/TokenSaleUpgrade.t.sol` | Cutting `TokenSaleV2` into a diamond that is already selling. |
 | `test/DeployDiamond.t.sol` | Reading recipes: the default, an oracle swap, `owners`, `exclude`, and every message a bad recipe produces. |
-| `scripts-js/*.test.js` | The merged `Diamond` ABI, the Lattice Studio link, the Foundry version warning. |
+| `scripts-js/*.test.js` | The merged `Diamond` ABI, the Lattice Studio link, the Foundry version warning, the Sourcify verification helpers. |
 
 `yarn test:testnet` and `yarn test:mainnet` fork a live network. The suite does not need them.
 
@@ -45,6 +45,7 @@ From the repository root the same commands are `yarn foundry:deploy ...`.
 - The deployer must be an account that exists on Hedera: generate a keystore with `yarn account:generate` and fund its address from the [faucet](https://portal.hedera.com/faucet).
 - The Makefile passes `--slow --legacy`: one transaction at a time, with legacy gas pricing, which is what the relay expects.
 - Lattice facets (the recipe's, and `HTSAdapter`) are deployed at deterministic addresses, through CreateX or the deterministic deployment proxy where the chain has one, so a facet that is already on the network at its address is reused instead of deployed again. `TokenSale` and the initializers use plain `CREATE`, so every run deploys them again.
+- On `hedera_testnet` and `hedera_mainnet`, once the script has run and the ABIs are written, `scripts-js/verifyDeployment.js` verifies on Sourcify every contract in `broadcast/<Script>/<chainId>/run-latest.json`, six at a time, with `forge verify-contract`. It skips a contract Sourcify already has, which is how a reused facet is passed over. A contract that fails to verify is printed with the `yarn foundry:verify:testnet` (or `:mainnet`) command to retry it, and the deploy still succeeds. Localhost is not verified.
 
 A deploy writes three things:
 
