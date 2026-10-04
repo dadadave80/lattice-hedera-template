@@ -10,6 +10,7 @@ import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter
 import { PythAdapterInit } from "@lattice/oracles/pyth/PythAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
 import { console } from "forge-std/console.sol";
+import { StealthBuy } from "../contracts/StealthBuy.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
 import { TokenSaleInit } from "../contracts/TokenSaleInit.sol";
 
@@ -22,8 +23,8 @@ import "../contracts/LatticeFacets.sol";
 ///         - The Lattice base comes from `diamond.recipe.json`, a file in Lattice Studio's recipe format, and
 ///           includes `HTSAdapter`, `ERC6538Registry` and `ERC5564Announcer`. Change the base by editing that
 ///           file (or exporting over it from Studio), never by editing cuts here.
-///         - The Hedera layer is fixed below: this project's `TokenSale` facet. It stays out of the recipe
-///           because it is not one of Lattice's facets, so Studio's catalog does not carry it.
+///         - The Hedera layer is fixed below: this project's `TokenSale` and `StealthBuy` facets. They stay out of
+///           the recipe because they are not Lattice's facets, so Studio's catalog does not carry them.
 /// @dev `build` and `assemble` take the recipe as a string and never broadcast, so tests call them directly.
 contract DeployDiamond is BaseDeploy {
     string internal constant RECIPE = "diamond.recipe.json";
@@ -42,7 +43,7 @@ contract DeployDiamond is BaseDeploy {
     bytes4 internal constant DIAMOND_CUT = 0x1f931c1c;
 
     /// @dev How many facets and initializers the Hedera layer appends to the recipe's.
-    uint256 internal constant HEDERA_FACETS = 1;
+    uint256 internal constant HEDERA_FACETS = 2;
     uint256 internal constant HEDERA_INITS = 2;
 
     function run() external returns (address diamond) {
@@ -94,6 +95,8 @@ contract DeployDiamond is BaseDeploy {
         }
         names[base.length] = "TokenSale";
         cuts[base.length] = _cut(address(new TokenSale()));
+        names[base.length + 1] = "StealthBuy";
+        cuts[base.length + 1] = _cut(address(new StealthBuy()));
         _requireDistinctSelectors(names, cuts);
 
         inits = new address[](steps + HEDERA_INITS);

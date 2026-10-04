@@ -137,8 +137,9 @@ library TokenSaleLib {
     }
 
     /// @dev HTS returns a response code instead of reverting, so the code is checked here. The call is a plain
-    ///      `call` from the diamond: HTS sees the diamond as sender, and the diamond holds the tokens.
-    function _transferFromTreasury(address token, address to, int64 tokens) private {
+    ///      `call` from the diamond: HTS sees the diamond as sender, and the diamond holds the tokens. Internal
+    ///      for `StealthBuyLib`, which pays out the same way.
+    function _transferFromTreasury(address token, address to, int64 tokens) internal {
         (bool ok, bytes memory ret) = HTS_SYSTEM_CONTRACT.call(
             abi.encodeCall(IHederaTokenService.transferToken, (token, address(this), to, tokens))
         );

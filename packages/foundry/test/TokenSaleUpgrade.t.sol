@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import { IDiamondCut } from "@diamond/interfaces/IDiamondCut.sol";
 import { IDiamondLoupe } from "@diamond/interfaces/IDiamondLoupe.sol";
-import { FacetCut, FacetCutAction } from "@diamond/libraries/DiamondLib.sol";
+import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
 import { IHRC719 } from "@lattice/interfaces/external/hedera/IHRC719.sol";
 import { TokenSaleV2 } from "../contracts/TokenSaleV2.sol";
@@ -61,34 +61,5 @@ contract TokenSaleUpgradeTest is SaleTestBase {
         assertEq(exported.length, 7 * 4);
         assertEq(_selectorAt(exported, 0), ITokenSale.buy.selector);
         assertEq(_selectorAt(exported, 6), TokenSaleV2.bonusBps.selector);
-    }
-
-    /// @dev The same rule the app's Diamond page applies: a selector the diamond already serves is replaced,
-    ///      a new one is added.
-    function _cutsFor(address facet) internal view returns (FacetCut[] memory cuts) {
-        bytes memory exported = TokenSaleV2(facet).exportSelectors();
-        uint256 count = exported.length / 4;
-        bytes4[] memory replaced = new bytes4[](count);
-        bytes4[] memory added = new bytes4[](count);
-        uint256 replaces;
-        uint256 adds;
-        for (uint256 i; i < count; ++i) {
-            bytes4 selector = _selectorAt(exported, i);
-            if (IDiamondLoupe(diamond).facetAddress(selector) == address(0)) added[adds++] = selector;
-            else replaced[replaces++] = selector;
-        }
-        assembly ("memory-safe") {
-            mstore(replaced, replaces)
-            mstore(added, adds)
-        }
-        cuts = new FacetCut[](2);
-        cuts[0] = FacetCut({ facetAddress: facet, action: FacetCutAction.Replace, functionSelectors: replaced });
-        cuts[1] = FacetCut({ facetAddress: facet, action: FacetCutAction.Add, functionSelectors: added });
-    }
-
-    function _selectorAt(bytes memory packed, uint256 index) internal pure returns (bytes4 selector) {
-        assembly ("memory-safe") {
-            selector := mload(add(add(packed, 0x20), mul(index, 4)))
-        }
     }
 }

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import { IDiamondLoupe } from "@diamond/interfaces/IDiamondLoupe.sol";
+import { FacetCut, FacetCutAction } from "@diamond/libraries/DiamondLib.sol";
 import { MockHederaTokenService } from "@lattice-test/mocks/hedera/MockHederaTokenService.sol";
+import { IERC8153 } from "@lattice/interfaces/external/ercs/IERC8153.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { HTS_SYSTEM_CONTRACT } from "@lattice/tokens/hedera/HTSAdapterLib.sol";
 import { Test } from "forge-std/Test.sol";
+import { TokenSale } from "../contracts/TokenSale.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
 import { MockAggregatorV3 } from "./mocks/MockAggregatorV3.sol";
@@ -50,5 +54,58 @@ abstract contract SaleTestBase is Test {
     function _launch() internal returns (address token) {
         vm.prank(admin);
         token = sale.launchSale{ value: CREATION_FEE }("Lattice Sale Token", "LST", "", 8, SUPPLY, PRICE_USD);
+    }
+
+    /// @dev Every function in `name`'s ABI except `exportSelectors()` must be exported, and nothing else.
+    function _assertExportsItsAbi(string memory name, bytes memory exported) internal view {
+        string memory artifact = vm.readFile(string.concat("out/", name, ".sol/", name, ".json"));
+        string[] memory signatures = vm.parseJsonKeys(artifact, ".methodIdentifiers");
+
+        assertEq(exported.length, (signatures.length - 1) * 4, "one selector per ABI function");
+        for (uint256 i; i < signatures.length; ++i) {
+            bytes4 selector = bytes4(keccak256(bytes(signatures[i])));
+            if (selector == TokenSale.exportSelectors.selector) continue;
+            assertTrue(_contains(exported, selector), string.concat(signatures[i], " is not exported"));
+        }
+    }
+
+    /// @dev The same rule the app's Diamond page applies: a selector the diamond already serves is replaced,
+    ///      a new one is added.
+    function _cutsFor(address facet) internal view returns (FacetCut[] memory cuts) {
+        bytes memory exported = IERC8153(facet).exportSelectors();
+        uint256 count = exported.length / 4;
+        bytes4[] memory replaced = new bytes4[](count);
+        bytes4[] memory added = new bytes4[](count);
+        uint256 replaces;
+        uint256 adds;
+        for (uint256 i; i < count; ++i) {
+            bytes4 selector = _selectorAt(exported, i);
+            if (IDiamondLoupe(diamond).facetAddress(selector) == address(0)) added[adds++] = selector;
+            else replaced[replaces++] = selector;
+        }
+        assembly ("memory-safe") {
+            mstore(replaced, replaces)
+            mstore(added, adds)
+        }
+        cuts = new FacetCut[](2);
+        cuts[0] = FacetCut({ facetAddress: facet, action: FacetCutAction.Replace, functionSelectors: replaced });
+        cuts[1] = FacetCut({ facetAddress: facet, action: FacetCutAction.Add, functionSelectors: added });
+    }
+
+    function _selectorAt(bytes memory packed, uint256 index) internal pure returns (bytes4 selector) {
+        assembly ("memory-safe") {
+            selector := mload(add(add(packed, 0x20), mul(index, 4)))
+        }
+    }
+
+    function _contains(bytes memory packed, bytes4 selector) internal pure returns (bool) {
+        for (uint256 i; i < packed.length; i += 4) {
+            bytes4 chunk;
+            assembly ("memory-safe") {
+                chunk := mload(add(add(packed, 0x20), i))
+            }
+            if (chunk == selector) return true;
+        }
+        return false;
     }
 }

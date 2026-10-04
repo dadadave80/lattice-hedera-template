@@ -13,6 +13,7 @@ import { IERC6538Registry } from "@lattice/interfaces/privacy/IERC6538Registry.s
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { Test } from "forge-std/Test.sol";
 import { IERC165 } from "forge-std/interfaces/IERC165.sol";
+import { IStealthBuy } from "../contracts/interfaces/IStealthBuy.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
 import { MockAggregatorV3 } from "./mocks/MockAggregatorV3.sol";
@@ -48,6 +49,7 @@ contract DeployDiamondTest is Test {
     function test_projectRecipe_buildsADiamondWithTheHederaLayer() public {
         (address diamond,,) = _diamond(vm.readFile("diamond.recipe.json"));
         assertTrue(IDiamondLoupe(diamond).facetAddress(ITokenSale.saleInfo.selector) != address(0), "TokenSale");
+        assertTrue(IDiamondLoupe(diamond).facetAddress(IStealthBuy.buyFor.selector) != address(0), "StealthBuy");
 
         assertTrue(
             IDiamondLoupe(diamond).facetAddress(IHTSAdapter.createFungibleToken.selector) != address(0), "HTSAdapter"
@@ -63,14 +65,15 @@ contract DeployDiamondTest is Test {
     function test_defaultRecipe_buildsTheBaseAndTheHederaLayer() public {
         (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
 
-        assertEq(names.length, 11, "ten base facets, HTSAdapter and the stealth pair among them, and TokenSale");
+        assertEq(names.length, 12, "ten base facets, HTSAdapter and the stealth pair among them, TokenSale, StealthBuy");
         assertEq(names[1], "HTSAdapter");
         assertEq(names[2], "ERC5564Announcer");
         assertEq(names[3], "ERC6538Registry");
         assertEq(names[10], "TokenSale");
+        assertEq(names[11], "StealthBuy");
 
         Facet[] memory facets = IDiamondLoupe(diamond).facets();
-        assertEq(facets.length, 11);
+        assertEq(facets.length, 12);
 
         uint256 baseSelectors;
         for (uint256 i; i < cuts.length; ++i) {
@@ -141,7 +144,7 @@ contract DeployDiamondTest is Test {
     function test_exclude_leavesTheSelectorOutOfTheDiamond() public {
         (address diamond, string[] memory names,) = _diamond(vm.readFile("test/fixtures/more-facets.recipe.json"));
 
-        assertEq(names.length, 13, "twelve base facets plus the Hedera layer");
+        assertEq(names.length, 14, "twelve base facets plus the Hedera layer");
         assertEq(IDiamondLoupe(diamond).facetAddress(UNREGISTER_FEED), address(0));
         assertTrue(IDiamondLoupe(diamond).facetAddress(LATEST_ANSWER) != address(0));
     }
@@ -319,11 +322,14 @@ contract DeployDiamondTest is Test {
 
         assertEq(vm.parseJsonAddress(record, ".address"), diamond);
         assertEq(vm.parseJsonUint(record, ".deployedOnBlock"), block.number);
-        assertEq(vm.parseJsonStringArray(record, ".facets").length, 11);
+        assertEq(vm.parseJsonStringArray(record, ".facets").length, 12);
         string[] memory htsSelectors = vm.parseJsonStringArray(record, ".selectors.HTSAdapter");
         assertEq(htsSelectors.length, 13);
         assertEq(htsSelectors[0], vm.toString(abi.encodePacked(IHTSAdapter.associateToken.selector)));
         assertEq(vm.parseJsonStringArray(record, ".selectors.TokenSale").length, 6);
+        string[] memory stealthSelectors = vm.parseJsonStringArray(record, ".selectors.StealthBuy");
+        assertEq(stealthSelectors.length, 1);
+        assertEq(stealthSelectors[0], vm.toString(abi.encodePacked(IStealthBuy.buyFor.selector)));
     }
 
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.
