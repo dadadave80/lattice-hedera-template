@@ -1,11 +1,12 @@
-import { CATALOG_URL, loadCatalog } from "./catalog";
+import recipe from "../../../foundry/diamond.recipe.json";
+import { CATALOG_URL, PINNED_CATALOG, loadCatalog } from "./catalog";
 import { describe, expect, it } from "vitest";
 
 const HASH = "0x98f6be2df80deca8c6b6cd6dab9feecf3f02d924b943fa354561fbb686596d14";
 const OTHER_HASH = "0x2ab42999bbfac307417b4265a7e9dbb8e004a8473bc9fc532b9bf33efa1d20c1";
 
 const manifest = {
-  default: "dev-6c8db45",
+  default: "dev-f4a32c8",
   catalogs: [
     { id: "dev-f4a32c8", tag: "dev-f4a32c8", hash: OTHER_HASH, path: "dev-f4a32c8/index.json" },
     { id: "dev-6c8db45", tag: "dev-6c8db45", hash: HASH, path: "dev-6c8db45/index.json" },
@@ -31,7 +32,11 @@ const serving = (files: Record<string, unknown>) => {
 };
 
 describe("loadCatalog", () => {
-  it("loads the catalog the manifest names as default, with the manifest's tag and hash", async () => {
+  it("pins the catalog diamond.recipe.json pins", () => {
+    expect(PINNED_CATALOG).toEqual(recipe.catalog);
+  });
+
+  it("loads the pinned catalog, not the one the manifest names as default", async () => {
     const { fetcher, requested } = serving({
       [`${CATALOG_URL}manifest.json`]: manifest,
       [`${CATALOG_URL}dev-6c8db45/index.json`]: { hash: HASH, facets: [receive] },
@@ -39,6 +44,26 @@ describe("loadCatalog", () => {
 
     expect(await loadCatalog(fetcher)).toEqual({ tag: "dev-6c8db45", hash: HASH, facets: [receive] });
     expect(requested).toEqual([`${CATALOG_URL}manifest.json`, `${CATALOG_URL}dev-6c8db45/index.json`]);
+  });
+
+  it("fails when Studio no longer lists the pinned catalog", async () => {
+    const { fetcher } = serving({
+      [`${CATALOG_URL}manifest.json`]: { ...manifest, catalogs: manifest.catalogs.slice(0, 1) },
+    });
+
+    await expect(loadCatalog(fetcher)).rejects.toThrow("no longer lists catalog dev-6c8db45");
+  });
+
+  it("refuses a manifest entry whose hash is not the pinned one", async () => {
+    const { fetcher, requested } = serving({
+      [`${CATALOG_URL}manifest.json`]: {
+        ...manifest,
+        catalogs: manifest.catalogs.map(entry => ({ ...entry, hash: OTHER_HASH })),
+      },
+    });
+
+    await expect(loadCatalog(fetcher)).rejects.toThrow("is not the one the recipe pins");
+    expect(requested).toEqual([`${CATALOG_URL}manifest.json`]);
   });
 
   it("refuses an index whose hash is not the one the manifest names", async () => {
