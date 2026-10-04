@@ -125,3 +125,36 @@ test("withDiamond gives the chain one Diamond and keeps what was deployed on its
     deployedOnBlock: 42,
   });
 });
+
+test("withDiamond names the file a facet's artifact should be in when it is missing", () => {
+  const record = {
+    address: "0xD1a0000000000000000000000000000000000000",
+    deployedOnBlock: 42,
+    facets: ["Referral"],
+    selectors: { Referral: ["0x12345678"] },
+  };
+  const missingFile = () => {
+    throw Object.assign(new Error("ENOENT: no such file"), { code: "ENOENT" });
+  };
+
+  for (const artifactOf of [() => null, missingFile]) {
+    assert.throws(
+      () => withDiamond({}, record, artifactOf),
+      /out\/Referral\.sol\/Referral\.json does not exist\. Put Referral in contracts\/Referral\.sol/
+    );
+  }
+});
+
+test("withDiamond passes on any other error reading an artifact", () => {
+  const record = {
+    address: "0xD1a0000000000000000000000000000000000000",
+    deployedOnBlock: 42,
+    facets: ["TokenSale"],
+    selectors: { TokenSale: ["0x08bf598d"] },
+  };
+  const corrupt = () => {
+    throw new SyntaxError("Unexpected end of JSON input");
+  };
+
+  assert.throws(() => withDiamond({}, record, corrupt), SyntaxError);
+});

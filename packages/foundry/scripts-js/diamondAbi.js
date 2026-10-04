@@ -62,6 +62,26 @@ export function mergeDiamondAbi(facets) {
 }
 
 /**
+ * Forge writes a contract's artifact to `out/<file>.sol/<contract>.json`, and `generateTsAbis.js` looks it up by
+ * the contract's name alone, so a facet in a file named otherwise is not found.
+ */
+function facetArtifact(name, artifactOf) {
+  let artifact;
+  try {
+    artifact = artifactOf(name);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  if (!artifact) {
+    throw new Error(
+      `The diamond record lists the facet ${name}, but out/${name}.sol/${name}.json does not exist. ` +
+        `Put ${name} in contracts/${name}.sol, a file named after it, run forge build, then node scripts-js/generateTsAbis.js.`
+    );
+  }
+  return artifact;
+}
+
+/**
  * A chain's contracts as the frontend should see them: one `Diamond`, followed by whatever was deployed
  * on its own (an upgrade facet waiting to be cut in, for example).
  *
@@ -71,7 +91,7 @@ export function mergeDiamondAbi(facets) {
  */
 export function withDiamond(contracts, record, artifactOf) {
   const facets = record.facets.map((name) => {
-    const { abi, methodIdentifiers } = artifactOf(name);
+    const { abi, methodIdentifiers } = facetArtifact(name, artifactOf);
     return { abi, methodIdentifiers, selectors: record.selectors[name] };
   });
   const standalone = Object.entries(contracts).filter(
