@@ -13,10 +13,14 @@ import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
 import { MockAggregatorV3 } from "./mocks/MockAggregatorV3.sol";
 
-/// @dev Opens the step `run()` performs after the diamond exists, so it can be tested without a broadcast.
+/// @dev Opens the two steps `run()` performs after the diamond exists, so they can be tested without a broadcast.
 contract DeployDiamondHarness is DeployDiamond {
     function registerHbarUsdFeed(address diamond) external {
         _registerHbarUsdFeed(diamond);
+    }
+
+    function writeRecord(address diamond, string[] memory names, FacetCut[] memory cuts) external {
+        _writeRecord(diamond, names, cuts);
     }
 }
 
@@ -118,6 +122,23 @@ contract DeployDiamondTest is Test {
         assertEq(feed, HBAR_USD_FEED_TESTNET);
         // 365 days on testnet, unless your .env sets HBAR_USD_MAX_STALENESS.
         assertEq(maxStaleness, vm.envOr("HBAR_USD_MAX_STALENESS", uint256(365 days)));
+    }
+
+    function test_writeRecord_savesWhatTheFrontendNeeds() public {
+        (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
+        string memory path = string.concat("deployments/diamond/", vm.toString(block.chainid), ".json");
+
+        deployer.writeRecord(diamond, names, cuts);
+        string memory record = vm.readFile(path);
+        vm.removeFile(path);
+
+        assertEq(vm.parseJsonAddress(record, ".address"), diamond);
+        assertEq(vm.parseJsonUint(record, ".deployedOnBlock"), block.number);
+        assertEq(vm.parseJsonStringArray(record, ".facets").length, 9);
+        string[] memory htsSelectors = vm.parseJsonStringArray(record, ".selectors.HTSAdapter");
+        assertEq(htsSelectors.length, 13);
+        assertEq(htsSelectors[0], vm.toString(abi.encodePacked(IHTSAdapter.associateToken.selector)));
+        assertEq(vm.parseJsonStringArray(record, ".selectors.TokenSale").length, 6);
     }
 
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.

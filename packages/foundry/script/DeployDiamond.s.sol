@@ -45,10 +45,13 @@ contract DeployDiamond is BaseDeploy {
 
         vm.startBroadcast();
         (, address deployer,) = vm.readCallers();
-        diamond = assemble(json, deployer);
+        (string[] memory names, FacetCut[] memory cuts, address[] memory inits, bytes[] memory calls) =
+            build(json, deployer);
+        diamond = _assembleMulti(cuts, inits, calls);
         _registerHbarUsdFeed(diamond);
         vm.stopBroadcast();
 
+        _writeRecord(diamond, names, cuts);
         console.log("Diamond deployed at", diamond);
     }
 
@@ -144,5 +147,26 @@ contract DeployDiamond is BaseDeploy {
         uint256 maxStaleness = vm.envOr("HBAR_USD_MAX_STALENESS", mainnet ? uint256(25 hours) : uint256(365 days));
         IChainlinkAdapter(diamond)
             .registerFeed(HBAR_USD, mainnet ? HBAR_USD_FEED_MAINNET : HBAR_USD_FEED_TESTNET, uint48(maxStaleness));
+    }
+
+    /// @dev What `scripts-js/generateTsAbis.js` needs to give the frontend one `Diamond` contract: the address,
+    ///      the facet names, and the selectors each facet serves after `exclude` and `owners` were applied.
+    function _writeRecord(address diamond, string[] memory names, FacetCut[] memory cuts) internal {
+        string memory selectors;
+        for (uint256 i; i < names.length; ++i) {
+            bytes4[] memory cut = cuts[i].functionSelectors;
+            string[] memory hexes = new string[](cut.length);
+            for (uint256 j; j < cut.length; ++j) {
+                hexes[j] = vm.toString(abi.encodePacked(cut[j]));
+            }
+            selectors = vm.serializeString("selectors", names[i], hexes);
+        }
+        vm.serializeAddress("record", "address", diamond);
+        vm.serializeUint("record", "deployedOnBlock", block.number);
+        vm.serializeString("record", "facets", names);
+        string memory record = vm.serializeString("record", "selectors", selectors);
+
+        vm.createDir("deployments/diamond", true);
+        vm.writeJson(record, string.concat("deployments/diamond/", vm.toString(block.chainid), ".json"));
     }
 }
