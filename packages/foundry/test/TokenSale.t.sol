@@ -158,6 +158,25 @@ contract TokenSaleTest is SaleTestBase {
         vm.stopPrank();
     }
 
+    function test_setSalePrice_changesTheQuote() public {
+        _launch();
+
+        vm.expectEmit(diamond);
+        emit ITokenSale.SalePriceSet(0.1e18);
+        vm.prank(admin);
+        sale.setSalePrice(0.1e18);
+
+        assertEq(sale.quote(ONE_HBAR), 2 * ONE_TOKEN);
+    }
+
+    function test_setSalePrice_revertsForAnyoneButTheAdmin() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, buyer, bytes32(0))
+        );
+        vm.prank(buyer);
+        sale.setSalePrice(0.1e18);
+    }
+
     function test_storageSlot_followsErc7201() public pure {
         bytes32 expected = keccak256(abi.encode(uint256(keccak256("lattice-hedera-template.storage.TokenSale")) - 1))
             & ~bytes32(uint256(0xff));

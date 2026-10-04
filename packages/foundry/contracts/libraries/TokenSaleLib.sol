@@ -73,6 +73,13 @@ library TokenSaleLib {
         emit ITokenSale.SaleLaunched(token, decimals, supply, priceUsd);
     }
 
+    function setSalePrice(uint256 priceUsd) internal {
+        AccessControlLib.checkRole(DEFAULT_ADMIN_ROLE);
+        if (priceUsd == 0) revert ITokenSale.TokenSaleInvalidPrice();
+        tokenSaleStorage().priceUsd = priceUsd;
+        emit ITokenSale.SalePriceSet(priceUsd);
+    }
+
     function buy(int64 minTokens) internal returns (int64 tokens) {
         EmergencyStopLib.checkNotStopped();
         TokenSaleStorage storage $ = tokenSaleStorage();
