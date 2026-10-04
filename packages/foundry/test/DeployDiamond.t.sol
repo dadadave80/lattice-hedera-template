@@ -13,6 +13,7 @@ import { IERC6538Registry } from "@lattice/interfaces/privacy/IERC6538Registry.s
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { Test } from "forge-std/Test.sol";
 import { IERC165 } from "forge-std/interfaces/IERC165.sol";
+import { ISaucerSwapPool } from "../contracts/interfaces/ISaucerSwapPool.sol";
 import { IStealthBuy } from "../contracts/interfaces/IStealthBuy.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
@@ -54,6 +55,9 @@ contract DeployDiamondTest is Test {
         assertTrue(IDiamondLoupe(diamond).facetAddress(ITokenSale.saleInfo.selector) != address(0), "TokenSale");
         assertTrue(IDiamondLoupe(diamond).facetAddress(IStealthBuy.buyFor.selector) != address(0), "StealthBuy");
         assertTrue(
+            IDiamondLoupe(diamond).facetAddress(ISaucerSwapPool.seedPool.selector) != address(0), "SaucerSwapPool"
+        );
+        assertTrue(
             IDiamondLoupe(diamond).facetAddress(IHTSAdapter.createFungibleToken.selector) != address(0), "HTSAdapter"
         );
     }
@@ -71,6 +75,7 @@ contract DeployDiamondTest is Test {
         assertEq(names[3], "ERC6538Registry");
         assertGe(_indexOf(names, "TokenSale"), base.length, "TokenSale comes after the base");
         assertGe(_indexOf(names, "StealthBuy"), base.length, "StealthBuy comes after the base");
+        assertGe(_indexOf(names, "SaucerSwapPool"), base.length, "SaucerSwapPool comes after the base");
 
         Facet[] memory facets = IDiamondLoupe(diamond).facets();
         assertEq(facets.length, names.length, "every cut is a facet of the diamond");
@@ -334,6 +339,7 @@ contract DeployDiamondTest is Test {
         string[] memory stealthSelectors = vm.parseJsonStringArray(record, ".selectors.StealthBuy");
         assertEq(stealthSelectors.length, 1);
         assertEq(stealthSelectors[0], vm.toString(abi.encodePacked(IStealthBuy.buyFor.selector)));
+        assertEq(vm.parseJsonStringArray(record, ".selectors.SaucerSwapPool").length, 2);
     }
 
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.

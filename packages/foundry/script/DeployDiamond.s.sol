@@ -12,6 +12,8 @@ import { PythAdapterInit } from "@lattice/oracles/pyth/PythAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
 import { VmSafe } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
+import { SaucerSwapPool } from "../contracts/SaucerSwapPool.sol";
+import { SaucerSwapPoolInit } from "../contracts/SaucerSwapPoolInit.sol";
 import { StealthBuy } from "../contracts/StealthBuy.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
 import { TokenSaleInit } from "../contracts/TokenSaleInit.sol";
@@ -20,13 +22,35 @@ import { TokenSaleInit } from "../contracts/TokenSaleInit.sol";
 // Importing the wiring file here makes every wired facet part of any build that includes this script.
 import "../contracts/LatticeFacets.sol";
 
+/// @title SaucerSwapV1
+/// @notice SaucerSwap V1's addresses on each Hedera network (https://docs.saucerswap.finance/developers/contracts),
+///         for `SaucerSwapPoolInit`. `DeployDiamond` and `DeploySaucerSwapPool` both read them here.
+/// @dev The router is SaucerSwapV1RouterV3, the current one; its older versions and the old WHBAR are deprecated.
+///      `whbar` is the WHBAR HTS token the router's `whbar()` returns, which is what `getPair` takes, not the
+///      wrapping contract its `WHBAR()` returns.
+library SaucerSwapV1 {
+    address internal constant ROUTER_TESTNET = 0x0000000000000000000000000000000000004b40; // 0.0.19264
+    address internal constant FACTORY_TESTNET = 0x00000000000000000000000000000000000026E7; // 0.0.9959
+    address internal constant WHBAR_TESTNET = 0x0000000000000000000000000000000000003aD2; // 0.0.15058
+    address internal constant ROUTER_MAINNET = 0x00000000000000000000000000000000002E7A5D; // 0.0.3045981
+    address internal constant FACTORY_MAINNET = 0x0000000000000000000000000000000000103780; // 0.0.1062784
+    address internal constant WHBAR_MAINNET = 0x0000000000000000000000000000000000163B5a; // 0.0.1456986
+
+    /// @notice Mainnet's addresses on chain 295, testnet's on any other chain, as `DeployDiamond` picks the feed.
+    function addresses(uint256 chainId) internal pure returns (address router, address factory, address whbar) {
+        if (chainId == 295) return (ROUTER_MAINNET, FACTORY_MAINNET, WHBAR_MAINNET);
+        return (ROUTER_TESTNET, FACTORY_TESTNET, WHBAR_TESTNET);
+    }
+}
+
 /// @title DeployDiamond
 /// @notice Builds this project's diamond in two layers and deploys it in one transaction.
 ///         - The Lattice base comes from `diamond.recipe.json`, a file in Lattice Studio's recipe format, and
 ///           includes `HTSAdapter`, `ERC6538Registry` and `ERC5564Announcer`. Change the base by editing that
 ///           file (or exporting over it from Studio), never by editing cuts here.
-///         - The Hedera layer is fixed below: this project's `TokenSale` and `StealthBuy` facets. They stay out of
-///           the recipe because they are not Lattice's facets, so Studio's catalog does not carry them.
+///         - The Hedera layer is fixed below: this project's `TokenSale`, `StealthBuy` and `SaucerSwapPool` facets.
+///           They stay out of the recipe because they are not Lattice's facets, so Studio's catalog does not carry
+///           them. `SaucerSwapPool` gets the SaucerSwap V1 addresses of the chain it is deployed to.
 /// @dev `build` and `assemble` take the recipe as a string and never broadcast, so tests call them directly.
 contract DeployDiamond is BaseDeploy {
     string internal constant RECIPE = "diamond.recipe.json";
@@ -46,8 +70,8 @@ contract DeployDiamond is BaseDeploy {
 
     /// @dev How many facets and initializers the Hedera layer appends to the recipe's. A facet added in `build()`
     ///      without raising `HEDERA_FACETS` stops it with an array out-of-bounds panic (0x32).
-    uint256 internal constant HEDERA_FACETS = 2;
-    uint256 internal constant HEDERA_INITS = 2;
+    uint256 internal constant HEDERA_FACETS = 3;
+    uint256 internal constant HEDERA_INITS = 3;
 
     function run() external returns (address diamond) {
         require(
@@ -106,6 +130,8 @@ contract DeployDiamond is BaseDeploy {
         cuts[base.length] = _cut(address(new TokenSale()));
         names[base.length + 1] = "StealthBuy";
         cuts[base.length + 1] = _cut(address(new StealthBuy()));
+        names[base.length + 2] = "SaucerSwapPool";
+        cuts[base.length + 2] = _cut(address(new SaucerSwapPool()));
         _requireProjectFacets(names, base.length);
         _requireDistinctSelectors(names, cuts);
 
@@ -116,8 +142,11 @@ contract DeployDiamond is BaseDeploy {
         }
         inits[steps] = address(new TokenSaleInit());
         calls[steps] = abi.encodeCall(TokenSaleInit.init, (HBAR_USD));
-        inits[steps + 1] = address(new DiamondIntrospectionInit());
-        calls[steps + 1] = abi.encodeCall(DiamondIntrospectionInit.initUpgradeable, ());
+        (address router, address factory, address whbar) = SaucerSwapV1.addresses(block.chainid);
+        inits[steps + 1] = address(new SaucerSwapPoolInit());
+        calls[steps + 1] = abi.encodeCall(SaucerSwapPoolInit.init, (router, factory, whbar));
+        inits[steps + 2] = address(new DiamondIntrospectionInit());
+        calls[steps + 2] = abi.encodeCall(DiamondIntrospectionInit.initUpgradeable, ());
     }
 
     /// @notice Problems that do not stop a deploy but that the developer should hear about.
