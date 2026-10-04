@@ -13,7 +13,7 @@ import { withDiamond } from "./diamondAbi.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// No chain ID remapping: broadcast folder name (31337) matches hederaLocalFork in scaffold.config.ts
+// No chain ID remapping: each broadcast folder is named after the chain ID the frontend uses
 const CHAIN_ID_MAP = {};
 
 const generatedContractComment = `
@@ -267,7 +267,7 @@ function main() {
     mkdirSync(NEXTJS_TARGET_DIR, { recursive: true });
   }
 
-  // Map chain IDs (e.g. 31337 -> 296 for local Hedera fork) so frontend finds contracts
+  // Map chain IDs through CHAIN_ID_MAP so the frontend finds contracts
   const outputContracts = {};
   for (const [chainId, chainConfig] of Object.entries(allGeneratedContracts)) {
     const outputChainId = String(CHAIN_ID_MAP[chainId] ?? chainId);

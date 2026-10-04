@@ -50,12 +50,12 @@ const BlockExplorer: NextPage = () => {
     if (hasError) {
       notification.error(
         <>
-          <p className="font-bold mt-0 mb-1">Cannot connect to local provider</p>
+          <p className="font-bold mt-0 mb-1">Cannot connect to the local chain</p>
           <p className="m-0">
-            - Did you forget to run <code className="italic bg-base-300 text-base font-bold">yarn hardhat:chain</code> ?
+            - Start a node at <code className="italic bg-base-300 text-base font-bold">http://127.0.0.1:8545</code>
           </p>
           <p className="mt-1 break-normal">
-            - Or you can change <code className="italic bg-base-300 text-base font-bold">targetNetwork</code> in{" "}
+            - Or change <code className="italic bg-base-300 text-base font-bold">targetNetworks</code> in{" "}
             <code className="italic bg-base-300 text-base font-bold">scaffold.config.ts</code>
           </p>
         </>,
@@ -71,16 +71,11 @@ const BlockExplorer: NextPage = () => {
       <div className="container mx-auto my-10">
         <div className="flex justify-center p-8">
           <div className="max-w-xl text-center text-base-content/80">
-            <p className="font-bold mb-2">
-              <code className="italic bg-base-300 text-base font-bold">targetNetwork</code> is not localhost
-            </p>
-            <p className="mb-2">
-              You are on <code className="italic bg-base-300 text-base font-bold">{targetNetwork.name}</code>. This
-              block explorer is only for <code className="italic bg-base-300 text-base font-bold">localhost</code>.
-            </p>
+            <p className="font-bold mb-2">This block explorer reads a local chain</p>
+            <p className="mb-2">This app runs on {targetNetwork.name}.</p>
             {targetNetwork.blockExplorers?.default && (
               <p>
-                You can use{" "}
+                Look up its transactions on{" "}
                 <a
                   className="text-accent underline"
                   href={targetNetwork.blockExplorers.default.url}
@@ -88,8 +83,8 @@ const BlockExplorer: NextPage = () => {
                   rel="noreferrer"
                 >
                   {targetNetwork.blockExplorers.default.name}
-                </a>{" "}
-                instead.
+                </a>
+                .
               </p>
             )}
           </div>
