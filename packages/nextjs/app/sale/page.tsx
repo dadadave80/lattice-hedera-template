@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { NextPage } from "next";
 import { AdminCard } from "~~/components/sale/AdminCard";
+import { PoolCard } from "~~/components/sale/PoolCard";
 import { SaleCard } from "~~/components/sale/SaleCard";
 import { getMetadata } from "~~/utils/scaffold-hbar/getMetadata";
 
@@ -25,6 +26,7 @@ const Sale: NextPage = () => {
       <div className="w-full max-w-4xl mx-auto px-5 -mt-6 pb-16 flex flex-col gap-6">
         <SaleCard />
         <AdminCard />
+        <PoolCard />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-base-100 rounded-2xl shadow-md p-8 border border-base-300">

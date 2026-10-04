@@ -1,4 +1,12 @@
-import { formatAmount, formatPrice, hbarToTinybars, minTokensOut, parsePositive, tinybarsToWeibars } from "./units";
+import {
+  formatAmount,
+  formatPrice,
+  hbarToTinybars,
+  minTokensOut,
+  parsePositive,
+  tinybarsToWeibars,
+  weibarsToTinybars,
+} from "./units";
 import { parseEther, parseUnits } from "viem";
 import { describe, expect, it } from "vitest";
 
@@ -88,5 +96,15 @@ describe("formatPrice", () => {
 
   it("takes the number of significant digits", () => {
     expect(formatPrice(parseUnits("0.123456", 18), 18, 2)).toBe("0.12");
+  });
+});
+
+describe("weibarsToTinybars", () => {
+  it("turns an 18-decimal relay balance into 8-decimal tinybars", () => {
+    expect(weibarsToTinybars(parseEther("1.5"))).toBe(150_000_000n);
+  });
+
+  it("drops weibars below one tinybar", () => {
+    expect(weibarsToTinybars(19_999_999_999n)).toBe(1n);
   });
 });

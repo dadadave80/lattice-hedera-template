@@ -19,6 +19,11 @@ export function tinybarsToWeibars(tinybars: bigint): bigint {
   return tinybars * WEIBARS_PER_TINYBAR;
 }
 
+/** A balance the JSON-RPC relay reports in weibars, in tinybars, as the contracts count it. */
+export function weibarsToTinybars(weibars: bigint): bigint {
+  return weibars / WEIBARS_PER_TINYBAR;
+}
+
 /** Parses a decimal amount, e.g. a token count or a USD price, into its smallest unit. */
 export function parsePositive(amount: string, decimals: number): bigint | undefined {
   try {
