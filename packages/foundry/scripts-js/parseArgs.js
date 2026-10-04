@@ -6,6 +6,7 @@ import { parse } from "toml";
 import { fileURLToPath } from "url";
 import { selectOrCreateKeystore } from "./selectOrCreateKeystore.js";
 import { relayWarning } from "./forgeVersion.js";
+import { chainIdFor, verifyDeployment } from "./verifyDeployment.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 config();
@@ -165,5 +166,9 @@ const result = spawnSync("make", ["deploy-and-generate-abis"], {
   shell: true,
   cwd: foundryPackageRoot,
 });
+
+if (result.status === 0 && chainIdFor(network) !== null) {
+  await verifyDeployment(network, fileName);
+}
 
 process.exit(result.status);
