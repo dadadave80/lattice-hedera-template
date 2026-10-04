@@ -1848,6 +1848,344 @@ const deployedContracts = {
           name: "TokenSaleWithdrawFailed",
           inputs: [],
         },
+        {
+          type: "function",
+          name: "buyFor",
+          inputs: [
+            {
+              name: "stealthAddress",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "ephemeralPubKey",
+              type: "bytes",
+              internalType: "bytes",
+            },
+            {
+              name: "viewTag",
+              type: "bytes1",
+              internalType: "bytes1",
+            },
+            {
+              name: "minTokensOut",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "stipend",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "event",
+          name: "Announcement",
+          inputs: [
+            {
+              name: "schemeId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "stealthAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "caller",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "ephemeralPubKey",
+              type: "bytes",
+              indexed: false,
+              internalType: "bytes",
+            },
+            {
+              name: "metadata",
+              type: "bytes",
+              indexed: false,
+              internalType: "bytes",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "StealthDelivery",
+          inputs: [
+            {
+              name: "stealthAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "tokens",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "paidTinybars",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "stipendTinybars",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "StealthBuyStipendFailed",
+          inputs: [
+            {
+              name: "stealthAddress",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "StealthBuyStipendTooHigh",
+          inputs: [
+            {
+              name: "stipend",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "StealthBuyZeroAddress",
+          inputs: [],
+        },
+        {
+          type: "function",
+          name: "DOMAIN_SEPARATOR",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "ERC6538REGISTRY_ENTRY_TYPE_HASH",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "incrementNonce",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "nonceOf",
+          inputs: [
+            {
+              name: "registrant",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "registerKeys",
+          inputs: [
+            {
+              name: "schemeId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "stealthMetaAddress",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "registerKeysOnBehalf",
+          inputs: [
+            {
+              name: "registrant",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "schemeId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "signature",
+              type: "bytes",
+              internalType: "bytes",
+            },
+            {
+              name: "stealthMetaAddress",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "stealthMetaAddressOf",
+          inputs: [
+            {
+              name: "registrant",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "schemeId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "event",
+          name: "NonceIncremented",
+          inputs: [
+            {
+              name: "registrant",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newNonce",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "StealthMetaAddressSet",
+          inputs: [
+            {
+              name: "registrant",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "schemeId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "stealthMetaAddress",
+              type: "bytes",
+              indexed: false,
+              internalType: "bytes",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "ERC6538Registry__InvalidSignature",
+          inputs: [],
+        },
+        {
+          type: "function",
+          name: "announce",
+          inputs: [
+            {
+              name: "schemeId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "stealthAddress",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "ephemeralPubKey",
+              type: "bytes",
+              internalType: "bytes",
+            },
+            {
+              name: "metadata",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
       ],
       inheritedFunctions: {},
       deployedOnBlock: 41335269,
