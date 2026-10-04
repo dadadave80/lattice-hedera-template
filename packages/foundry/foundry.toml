@@ -2,16 +2,27 @@
 src = 'contracts'
 out = 'out'
 libs = ['lib']
+# Lattice is developed against this compiler. Pinning it (with the optimizer settings below) keeps facet
+# bytecode identical for everyone who scaffolds this template, so facets land on the same deterministic
+# addresses and are reused instead of redeployed.
+solc = "0.8.36"
+optimizer = true
+optimizer_runs = 200
 fs_permissions = [
     { access = "read-write", path = "deployments" },
     { access = "read-write", path = "./" }
 ]
 ffi = true
 evm_version = "cancun"
+# Lattice and forge-std are pinned dependencies; their compiler warnings are not this project's to fix.
+ignored_warnings_from = ["lib"]
 
-# Suppress style lints for API/modifier names we don't control
+# Suppress style lints for API/modifier names we don't control, and one that mistakes Lattice's library
+# calls (AccessControlLib.checkRole) for external calls.
 [lint]
-exclude_lints = ["mixed-case-variable", "mixed-case-function"]
+exclude_lints = ["mixed-case-variable", "mixed-case-function", "reentrancy-events"]
+# Lint the contracts that get deployed. Tests and scripts lean on cheatcodes the linter flags by design.
+ignore = ["test/**/*.sol", "script/**/*.sol", "contracts/LatticeFacets.sol"]
 
 [rpc_endpoints]
 localhost = "http://127.0.0.1:8545"
