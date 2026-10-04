@@ -10,6 +10,8 @@
     "ChainlinkAdapter",
     "PythAdapter",
     "HTSAdapter",
+    "ERC5564Announcer",
+    "ERC6538Registry",
     "AccessControlDiamondCut",
     "EmergencyStop",
     "AccessControl",
@@ -51,6 +53,14 @@
             "$ref": "deployer"
           }
         }
+      },
+      {
+        "spec": "ERC6538RegistryInit",
+        "args": {}
+      },
+      {
+        "spec": "ERC5564AnnouncerInit",
+        "args": {}
       }
     ]
   }

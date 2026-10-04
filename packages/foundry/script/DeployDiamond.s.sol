@@ -20,8 +20,8 @@ import "../contracts/LatticeFacets.sol";
 /// @title DeployDiamond
 /// @notice Builds this project's diamond in two layers and deploys it in one transaction.
 ///         - The Lattice base comes from `diamond.recipe.json`, a file in Lattice Studio's recipe format, and
-///           includes `HTSAdapter`. Change the base by editing that file (or exporting over it from Studio),
-///           never by editing cuts here.
+///           includes `HTSAdapter`, `ERC6538Registry` and `ERC5564Announcer`. Change the base by editing that
+///           file (or exporting over it from Studio), never by editing cuts here.
 ///         - The Hedera layer is fixed below: this project's `TokenSale` facet. It stays out of the recipe
 ///           because it is not one of Lattice's facets, so Studio's catalog does not carry it.
 /// @dev `build` and `assemble` take the recipe as a string and never broadcast, so tests call them directly.
@@ -177,7 +177,8 @@ contract DeployDiamond is BaseDeploy {
         string[] memory keys = vm.parseJsonKeys(json, args);
         init = deployCode(string.concat(spec, ".sol:", spec));
 
-        // Generic: any init whose only argument is `admin`.
+        // Generic: any init that takes no argument, and any init whose only argument is `admin`.
+        if (keys.length == 0) return (init, abi.encodeWithSignature("init()"));
         if (keys.length == 1 && _eq(keys[0], "admin")) {
             return
                 (init, abi.encodeWithSignature("init(address)", _addr(json, string.concat(args, ".admin"), deployer)));

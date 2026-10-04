@@ -12,9 +12,9 @@ const recipe = JSON.parse(
   )
 );
 
-// The same recipe encoded by Lattice Studio's own share-link encoder (lattice-studio@73e0403, feat/hedera).
+// The same recipe encoded by Lattice Studio's own share-link encoder (lattice-studio@e909125, feat/hedera).
 const STUDIO_ENCODED =
-  "https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/#s=1.lVDBbsIwDP0VFO3YSRTaqO0NdZuYtBNMuyAOTuLQiDapmsBAqP8-Z52ExG2nvBf7Pfv5xiQEaN2BVTfWgG9YxeaXstBc4ELpYq5QQiG54FJxBaLUiFIv9XyhykUmymypYZlnOU-1ELzgeclVmrGEBSBLpvD8zGWhRJazMWF4ke1JIat2-4RpkBg8YVY3YGxr7HGloA84kHz9ub2TlZTofe1sGFz7YqBzVtWnQJXXDocDWnndBtc_dhLfoERzRkJ_sg936vEtTo7qTZ3yfGK0kLEmxDMcjVW0uw_Ye-qa3mp3YzAcCNCrOmMjeBpQ_6bsW3elVUfK6HuU9PeY6T2aj8n_TO5XmOR7Klno6IBsjQoHmKkp1kyAjyndt8Uh2kcP2WAHX8SNo0Hp-AM";
+  "https://lattice-studio-git-feat-hedera-david-dadas-projects.vercel.app/#s=1.lVFBboMwEPxKZPVIpRDAAm4RbZVKPSVVL1EOxl6DFbCRbdJEEX_vUhpF5VCpp91ZzY5nx1fCmWeNqUh-JTVzNcnJ8pylkpawEjJdCuAs5bSkXFDBykwCcBnJ5Upkq7jM4kiyKIkTGsqypClNMirCmATEM5QkAk6PlKeijBMyBATOvOkFkHx_CIhkHLzDnhQ1U7pR-rgWrPNgcX3zvruD522RJDRea216zW8jmkTpFirlvL3gZM05OFcY7a1pnhRrjRZF70duC7YCzS87b7o5E_EWOKgTYPez9mb6Dl5Ge9NLIU0mhK6VVn7M6qi0wAOdh84ha6r5_kqYrbDBKlqlx-bBgvyOomvMBc0PGITrgONsfvjrKD4E_xO5RzVfv3Nmcf1J_BX1xDwgQbMWP45sQIBlCzEltSiZG4MznxrsTYnX0LIPxMqg93D4Ag";
 
 const decode = (link) =>
   JSON.parse(

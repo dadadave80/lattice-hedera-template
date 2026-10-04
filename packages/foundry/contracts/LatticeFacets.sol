@@ -12,6 +12,10 @@ import { ChainlinkAdapter } from "@lattice/oracles/chainlink/ChainlinkAdapter.so
 import { ChainlinkAdapterInit } from "@lattice/oracles/chainlink/ChainlinkAdapterInit.sol";
 import { PythAdapter } from "@lattice/oracles/pyth/PythAdapter.sol";
 import { PythAdapterInit } from "@lattice/oracles/pyth/PythAdapterInit.sol";
+import { ERC5564Announcer } from "@lattice/privacy/ERC5564Announcer.sol";
+import { ERC5564AnnouncerInit } from "@lattice/privacy/ERC5564AnnouncerInit.sol";
+import { ERC6538Registry } from "@lattice/privacy/ERC6538Registry.sol";
+import { ERC6538RegistryInit } from "@lattice/privacy/ERC6538RegistryInit.sol";
 import { EmergencyStop } from "@lattice/security/EmergencyStop.sol";
 import { Pausable } from "@lattice/security/Pausable.sol";
 import { HTSAdapter } from "@lattice/tokens/hedera/HTSAdapter.sol";

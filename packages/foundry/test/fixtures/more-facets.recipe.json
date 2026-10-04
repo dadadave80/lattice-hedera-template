@@ -9,6 +9,8 @@
   "facets": [
     "ChainlinkAdapter",
     "HTSAdapter",
+    "ERC5564Announcer",
+    "ERC6538Registry",
     "AccessControlDiamondCut",
     "EmergencyStop",
     "Pausable",
@@ -40,6 +42,14 @@
             "$ref": "deployer"
           }
         }
+      },
+      {
+        "spec": "ERC6538RegistryInit",
+        "args": {}
+      },
+      {
+        "spec": "ERC5564AnnouncerInit",
+        "args": {}
       }
     ]
   }

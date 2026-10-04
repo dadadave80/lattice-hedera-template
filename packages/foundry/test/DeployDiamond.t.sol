@@ -8,8 +8,11 @@ import { Lattice } from "@lattice/Lattice.sol";
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { IPythAdapter } from "@lattice/interfaces/oracles/IPythAdapter.sol";
+import { IERC5564Announcer } from "@lattice/interfaces/privacy/IERC5564Announcer.sol";
+import { IERC6538Registry } from "@lattice/interfaces/privacy/IERC6538Registry.sol";
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { Test } from "forge-std/Test.sol";
+import { IERC165 } from "forge-std/interfaces/IERC165.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
 import { MockAggregatorV3 } from "./mocks/MockAggregatorV3.sol";
@@ -49,21 +52,29 @@ contract DeployDiamondTest is Test {
         assertTrue(
             IDiamondLoupe(diamond).facetAddress(IHTSAdapter.createFungibleToken.selector) != address(0), "HTSAdapter"
         );
+        assertTrue(
+            IDiamondLoupe(diamond).facetAddress(IERC6538Registry.registerKeys.selector) != address(0), "ERC6538Registry"
+        );
+        assertTrue(
+            IDiamondLoupe(diamond).facetAddress(IERC5564Announcer.announce.selector) != address(0), "ERC5564Announcer"
+        );
     }
 
     function test_defaultRecipe_buildsTheBaseAndTheHederaLayer() public {
         (address diamond, string[] memory names, FacetCut[] memory cuts) = _diamond(recipe);
 
-        assertEq(names.length, 9, "eight base facets, HTSAdapter among them, and TokenSale");
+        assertEq(names.length, 11, "ten base facets, HTSAdapter and the stealth pair among them, and TokenSale");
         assertEq(names[1], "HTSAdapter");
-        assertEq(names[8], "TokenSale");
+        assertEq(names[2], "ERC5564Announcer");
+        assertEq(names[3], "ERC6538Registry");
+        assertEq(names[10], "TokenSale");
 
         Facet[] memory facets = IDiamondLoupe(diamond).facets();
-        assertEq(facets.length, 9);
+        assertEq(facets.length, 11);
 
         uint256 baseSelectors;
         for (uint256 i; i < cuts.length; ++i) {
-            if (i < 8) baseSelectors += cuts[i].functionSelectors.length;
+            if (i < 10) baseSelectors += cuts[i].functionSelectors.length;
             for (uint256 j; j < cuts[i].functionSelectors.length; ++j) {
                 assertEq(
                     IDiamondLoupe(diamond).facetAddress(cuts[i].functionSelectors[j]),
@@ -72,7 +83,32 @@ contract DeployDiamondTest is Test {
                 );
             }
         }
-        assertEq(baseSelectors, 37, "the selector count Lattice Studio plans for the default base");
+        assertEq(baseSelectors, 45, "the selector count Lattice Studio plans for the default base");
+    }
+
+    function test_defaultRecipe_runsTheInitStepsThatTakeNoArguments() public {
+        (address diamond,,) = _diamond(recipe);
+
+        assertTrue(
+            IERC165(diamond).supportsInterface(type(IERC6538Registry).interfaceId), "ERC6538RegistryInit registered it"
+        );
+        assertTrue(
+            IERC165(diamond).supportsInterface(type(IERC5564Announcer).interfaceId),
+            "ERC5564AnnouncerInit registered it"
+        );
+        assertEq(
+            IERC6538Registry(diamond).DOMAIN_SEPARATOR(),
+            keccak256(
+                abi.encode(
+                    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                    keccak256("ERC6538Registry"),
+                    keccak256("1.0"),
+                    block.chainid,
+                    diamond
+                )
+            ),
+            "ERC6538RegistryInit set the EIP-712 domain ERC-6538 signers expect"
+        );
     }
 
     function test_defaultRecipe_makesTheAdminTheAdminOfEveryLayer() public {
@@ -105,7 +141,7 @@ contract DeployDiamondTest is Test {
     function test_exclude_leavesTheSelectorOutOfTheDiamond() public {
         (address diamond, string[] memory names,) = _diamond(vm.readFile("test/fixtures/more-facets.recipe.json"));
 
-        assertEq(names.length, 11, "ten base facets plus the Hedera layer");
+        assertEq(names.length, 13, "twelve base facets plus the Hedera layer");
         assertEq(IDiamondLoupe(diamond).facetAddress(UNREGISTER_FEED), address(0));
         assertTrue(IDiamondLoupe(diamond).facetAddress(LATEST_ANSWER) != address(0));
     }
@@ -283,7 +319,7 @@ contract DeployDiamondTest is Test {
 
         assertEq(vm.parseJsonAddress(record, ".address"), diamond);
         assertEq(vm.parseJsonUint(record, ".deployedOnBlock"), block.number);
-        assertEq(vm.parseJsonStringArray(record, ".facets").length, 9);
+        assertEq(vm.parseJsonStringArray(record, ".facets").length, 11);
         string[] memory htsSelectors = vm.parseJsonStringArray(record, ".selectors.HTSAdapter");
         assertEq(htsSelectors.length, 13);
         assertEq(htsSelectors[0], vm.toString(abi.encodePacked(IHTSAdapter.associateToken.selector)));
