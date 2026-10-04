@@ -90,7 +90,7 @@ await writeContractAsync({
 
 The hook names are `useScaffoldReadContract` and `useScaffoldWriteContract`, not `useScaffoldContractRead` or `useScaffoldContractWrite`. Also available: `useScaffoldWatchContractEvent`, `useScaffoldEventHistory`, `useDeployedContractInfo`, `useScaffoldContract`, `useTransactor`.
 
-An HTS token answers ERC-20 reads (`name`, `symbol`, `balanceOf`) and the HIP-719 calls `associate()` and `isAssociated()` at its own address. Call those with wagmi's `useReadContract` and `useWriteContract`, as `SaleCard.tsx` does. An account must associate with the token before it can receive it.
+An HTS token answers ERC-20 reads (`name`, `symbol`, `balanceOf`) and the HIP-719 calls `associate()` and `isAssociated()` at its own address. Call those with wagmi's `useReadContract` and `useWriteContract`, as `SaleCard.tsx` does. An account must associate with the token before it can receive it, unless it has a free automatic association slot (HIP-904). Accounts created from an EVM address have unlimited slots, so their first purchase associates them.
 
 A function added by a cut (for example `bonusBps()` after the upgrade to `TokenSaleV2`) is not in the generated `Diamond` ABI until the next full deploy. Read it with an inline ABI, as `SaleCard.tsx` does.
 
