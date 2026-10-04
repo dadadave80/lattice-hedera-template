@@ -39,7 +39,7 @@ abstract contract SaleTestBase is Test {
         vm.etch(HTS_SYSTEM_CONTRACT, address(new MockHederaTokenService()).code);
 
         deployer = new DeployDiamond();
-        diamond = deployer.assemble(vm.readFile("test/fixtures/default.recipe.json"), admin);
+        diamond = _assembleDiamond();
         sale = ITokenSale(diamond);
 
         feed = new MockAggregatorV3();
@@ -49,6 +49,11 @@ abstract contract SaleTestBase is Test {
 
         vm.deal(admin, 100 * ONE_HBAR);
         vm.deal(buyer, 100 * ONE_HBAR);
+    }
+
+    /// @dev The diamond every test runs against, with `admin` as its admin. Override it to test another shape.
+    function _assembleDiamond() internal virtual returns (address) {
+        return deployer.assemble(vm.readFile("test/fixtures/default.recipe.json"), admin);
     }
 
     function _launch() internal returns (address token) {

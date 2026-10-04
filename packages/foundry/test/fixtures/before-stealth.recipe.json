@@ -1,0 +1,42 @@
+{
+  "$schema": "https://lattice-studio.invalid/schema/recipe.v1.json",
+  "schemaVersion": 1,
+  "name": "Hedera diamond base",
+  "catalog": {
+    "tag": "dev-6c8db45",
+    "hash": "0x98f6be2df80deca8c6b6cd6dab9feecf3f02d924b943fa354561fbb686596d14"
+  },
+  "facets": [
+    "ChainlinkAdapter",
+    "HTSAdapter",
+    "AccessControlDiamondCut",
+    "EmergencyStop",
+    "AccessControl",
+    "Receive",
+    "DiamondLoupeFacet",
+    "ERC165Facet"
+  ],
+  "owners": {},
+  "exclude": [],
+  "init": {
+    "kind": "steps",
+    "steps": [
+      {
+        "spec": "ChainlinkAdapterInit",
+        "args": {
+          "admin": {
+            "$ref": "deployer"
+          }
+        }
+      },
+      {
+        "spec": "HTSAdapterInit",
+        "args": {
+          "admin": {
+            "$ref": "deployer"
+          }
+        }
+      }
+    ]
+  }
+}
