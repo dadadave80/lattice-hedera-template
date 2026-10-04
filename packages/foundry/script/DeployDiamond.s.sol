@@ -26,12 +26,18 @@ import "../contracts/LatticeFacets.sol";
 contract DeployDiamond is BaseDeploy {
     string internal constant RECIPE = "diamond.recipe.json";
 
+    /// @dev The Studio catalog the pinned Lattice sources match. A recipe from another catalog still deploys;
+    ///      it only earns a warning.
+    string internal constant CATALOG_TAG = "dev-f4a32c8";
+
     /// @dev The key the sale reads its HBAR/USD rate under, on whichever oracle facet the recipe cuts.
     bytes32 internal constant HBAR_USD = "HBAR/USD";
 
     /// @dev Chainlink HBAR/USD price feeds (https://docs.chain.link/data-feeds/price-feeds/addresses?network=hedera).
     address internal constant HBAR_USD_FEED_TESTNET = 0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a;
     address internal constant HBAR_USD_FEED_MAINNET = 0xAF685FB45C12b92b5054ccb9313e135525F9b5d5;
+
+    bytes4 internal constant DIAMOND_CUT = 0x1f931c1c;
 
     /// @dev How many facets and initializers the Hedera layer appends to the recipe's.
     uint256 internal constant HEDERA_FACETS = 2;
@@ -52,6 +58,10 @@ contract DeployDiamond is BaseDeploy {
         _registerHbarUsdFeed(diamond);
         vm.stopBroadcast();
 
+        string[] memory notes = warnings(json, cuts);
+        for (uint256 i; i < notes.length; ++i) {
+            console.log(string.concat("Warning: ", notes[i]));
+        }
         _writeRecord(diamond, names, cuts);
         console.log("Diamond deployed at", diamond);
     }
@@ -94,6 +104,26 @@ contract DeployDiamond is BaseDeploy {
         calls[steps + 1] = abi.encodeCall(TokenSaleInit.init, (HBAR_USD));
         inits[steps + 2] = address(new DiamondIntrospectionInit());
         calls[steps + 2] = abi.encodeCall(DiamondIntrospectionInit.initUpgradeable, ());
+    }
+
+    /// @notice Problems that do not stop a deploy but that the developer should hear about.
+    function warnings(string memory json, FacetCut[] memory cuts) public view returns (string[] memory notes) {
+        notes = new string[](2);
+        uint256 n;
+        if (vm.keyExistsJson(json, ".catalog.tag")) {
+            string memory tag = vm.parseJsonString(json, ".catalog.tag");
+            if (!_eq(tag, CATALOG_TAG)) {
+                notes[n++] = string.concat(
+                    "the recipe is pinned to catalog ", tag, " but this template's Lattice matches ", CATALOG_TAG
+                );
+            }
+        }
+        if (!_serves(cuts, DIAMOND_CUT)) {
+            notes[n++] = "no facet in the recipe serves diamondCut, so this diamond cannot be upgraded";
+        }
+        assembly ("memory-safe") {
+            mstore(notes, n)
+        }
     }
 
     // ── recipe reading ──────────────────────────────────────────────────────────────────────────────
@@ -221,6 +251,16 @@ contract DeployDiamond is BaseDeploy {
                 }
             }
         }
+    }
+
+    function _serves(FacetCut[] memory cuts, bytes4 selector) internal pure returns (bool) {
+        for (uint256 i; i < cuts.length; ++i) {
+            bytes4[] memory selectors = cuts[i].functionSelectors;
+            for (uint256 j; j < selectors.length; ++j) {
+                if (selectors[j] == selector) return true;
+            }
+        }
+        return false;
     }
 
     function _eq(string memory a, string memory b) internal pure returns (bool) {

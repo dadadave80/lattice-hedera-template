@@ -181,6 +181,24 @@ contract DeployDiamondTest is Test {
         assertEq(inits.length, 3, "only the Hedera layer's initializers");
     }
 
+    function test_warnings_areEmptyForTheDefaultRecipe() public {
+        (, FacetCut[] memory cuts,,) = deployer.build(recipe, admin);
+
+        assertEq(deployer.warnings(recipe, cuts).length, 0);
+    }
+
+    function test_warnings_flagAnotherCatalogAndAMissingCutFacet() public {
+        string memory json = vm.replace(recipe, '"dev-f4a32c8"', '"v9.9.9"');
+        json = vm.replace(json, '"AccessControlDiamondCut",', "");
+        (, FacetCut[] memory cuts,,) = deployer.build(json, admin);
+
+        string[] memory notes = deployer.warnings(json, cuts);
+
+        assertEq(notes.length, 2);
+        assertEq(notes[0], "the recipe is pinned to catalog v9.9.9 but this template's Lattice matches dev-f4a32c8");
+        assertEq(notes[1], "no facet in the recipe serves diamondCut, so this diamond cannot be upgraded");
+    }
+
     function test_run_refusesAChainThatIsNotHedera() public {
         vm.expectRevert(
             bytes(
