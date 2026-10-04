@@ -103,6 +103,9 @@ export const SaleCard = () => {
   // The relay cannot simulate a transaction from an address Hedera has no account for, and an
   // address only gets one when it first receives HBAR.
   const isUnfunded = walletBalance?.value === 0n;
+  // A wallet that holds the token is associated, even when the read has not caught up with a buy that associated it.
+  const needsAssociation =
+    address !== undefined && isAssociated === false && !(typeof owned === "bigint" && owned > 0n);
 
   const transactor = useTransactor();
   const { writeContractAsync: writeToken } = useWriteContract();
@@ -135,7 +138,7 @@ export const SaleCard = () => {
         // The contract sees tinybars; a transaction's value is denominated in weibars.
         value: tinybarsToWeibars(tinybars),
       });
-      await refetchToken();
+      await Promise.all([refetchToken(), refetchAssociation()]);
     } catch {
       // The simulation or the transactor has already shown the error.
     }
@@ -191,7 +194,7 @@ export const SaleCard = () => {
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
-        {address && isAssociated !== true && (
+        {needsAssociation && (
           <button className="btn btn-secondary btn-sm" onClick={associate} disabled={isAssociating || isUnfunded}>
             {isAssociating && <span className="loading loading-spinner loading-xs" />}
             1. Associate {symbol ?? "token"}
@@ -204,7 +207,7 @@ export const SaleCard = () => {
             !address || isUnfunded || tinybars === undefined || quote === undefined || isBuying || isStopped === true
           }
         >
-          {isAssociated === true ? "Buy" : "2. Buy"}
+          {needsAssociation ? "2. Buy" : "Buy"}
         </button>
         {address && typeof owned === "bigint" && (
           <span className="text-sm text-base-content/70">
@@ -222,8 +225,7 @@ export const SaleCard = () => {
           <HederaPortalFaucet variant="link" label="Use the faucet" showIcon={false} />
         </p>
       ) : (
-        address &&
-        isAssociated !== true && (
+        needsAssociation && (
           <p className="text-xs text-base-content/60 mt-4 mb-0">
             On Hedera an account must associate with a token before it can receive it. Need testnet HBAR?{" "}
             <HederaPortalFaucet variant="link" label="Use the faucet" showIcon={false} />
