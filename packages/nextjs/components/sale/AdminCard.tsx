@@ -68,7 +68,8 @@ export const AdminCard = () => {
 
   const setSalePrice = async () => {
     if (priceUsd === undefined) return;
-    await writeContractAsync({ functionName: "setSalePrice", args: [priceUsd] });
+    const hash = await writeContractAsync({ functionName: "setSalePrice", args: [priceUsd] });
+    if (hash) setTypedPrice(undefined);
   };
 
   const withdraw = async () => {
