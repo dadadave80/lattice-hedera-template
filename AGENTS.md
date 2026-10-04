@@ -13,11 +13,12 @@ This is a Scaffold-HBAR dApp built from the Lattice Hedera Template. One [Lattic
 5. **Every facet lists its selectors in `exportSelectors()`** (ERC-8153): 4 bytes each, never `exportSelectors()` itself. Add a function, add its selector. `test/TokenSale.t.sol` and `test/StealthBuy.t.sol` fail when the list and the ABI disagree.
 6. **HBAR has two units.** Contracts see tinybars (8 decimals) in `msg.value` and in every amount they take or return. A transaction's `value` over JSON-RPC is weibars (18 decimals), and the relay converts. In the app, convert only through `packages/nextjs/utils/sale/units.ts`. With `cast send`, `--value 20ether` sends 20 HBAR. For `buyFor`, `msg.value` is payment plus stipend, and the `stipend` argument is tinybars too.
 7. **HTS answers with response codes. It does not revert.** `22` is success. Check the code after every call to `0x167` and revert with a named error, as `TokenSaleLib._transferFromTreasury` does.
-8. **There is no local chain.** HTS and the Chainlink feed exist only on Hedera. Contract tests run against Lattice's `MockHederaTokenService` and `test/mocks/MockAggregatorV3.sol`. The app runs against Hedera testnet. `forge script` cannot simulate an HTS call, so the token is created by a separate transaction (`launchSale`) after the deploy.
+8. **There is no local chain.** HTS and the Chainlink feed exist only on Hedera. Contract tests run against Lattice's `MockHederaTokenService` and `test/mocks/MockAggregatorV3.sol`. The app runs against Hedera testnet. `forge script` cannot simulate an HTS call, so the token is created by a separate transaction (`launchSale`) after the deploy. The project has no `chain`, `fork` or `test:local` yarn script, and `scaffold.config.ts` targets Hedera testnet and mainnet only.
 9. **Deploy with Foundry 1.7.1.** Foundry 1.8 fails against Hedera's relay with `-32602 Invalid parameter 1`. Building and testing work on any recent Foundry.
 10. **The frontend knows one contract, `Diamond`.** Its ABI is the union of what the facets serve. `scripts-js/generateTsAbis.js` writes it to `packages/nextjs/contracts/deployedContracts.ts` on every deploy. Never edit that file by hand.
-11. **`buyFor` creates an account.** HBAR sent to an address with no account lazy-creates it (HIP-583) with unlimited automatic token associations (HIP-904). `StealthBuyLib` sends the stipend before the token for that reason: keep that order. Give `buyFor` an explicit gas limit: it used 1,433,536, and `BuyPrivatelyCard` sets 2,000,000. Hedera charges the gas used, but the payer must hold the limit's worth up front, so do not inflate it.
+11. **`buyFor` creates an account.** HBAR sent to an address with no account lazy-creates it (HIP-583) with unlimited automatic token associations (HIP-904). `StealthBuyLib` sends the stipend before the token for that reason: keep that order. Give `buyFor` an explicit gas limit: it used 1,433,536, and `BuyPrivatelyCard` sets 2,000,000. Hedera charges the gas used, but the payer must hold the limit's worth up front, so do not inflate it. The card shows the network fee, about 1.2 HBAR, and enables Buy privately only when the wallet holds the payment, the stipend and the limit's worth of gas.
 12. **A Lattice initializer runs only while a diamond is initializing.** To run one in a cut on a live diamond, go through `UpgradeMultiInit`, as `DeployStealthBuy.s.sol` does.
+13. **The stipend pays the recipient's sweep.** `BuyPrivatelyCard` sends 1 HBAR by default. The sweep is the stealth account's first transaction: about 0.035 HBAR to an existing account, and about 0.67 HBAR to an address with no account, because the token transfer creates that account. `InboxCard` estimates the sweep's cost from the stealth address and disables Sweep when the stealth address holds less HBAR than the sweep costs. The sweep moves the tokens only, so the rest of the stipend stays on the stealth address. `buyFor` enforces no minimum stipend, so do not lower the default below what a sweep to a new address costs.
 
 ## Commands
 
@@ -45,7 +46,7 @@ Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_se
 | Path | What it is |
 | --- | --- |
 | `packages/foundry/diamond.recipe.json` | Every Lattice facet of the diamond, `HTSAdapter`, `ERC6538Registry` and `ERC5564Announcer` included, and their init steps, in Lattice Studio's recipe format. |
-| `packages/foundry/script/DeployDiamond.s.sol` | Reads the recipe, appends `TokenSale` and `StealthBuy`, deploys, registers the Chainlink feed, records the deployment. |
+| `packages/foundry/script/DeployDiamond.s.sol` | Reads the recipe, appends `TokenSale` and `StealthBuy`, deploys, registers the Chainlink feed, makes the admin an emergency guardian, records the deployment. |
 | `packages/foundry/script/Deploy.s.sol` | What `yarn foundry:deploy` runs by default. It is `DeployDiamond`. |
 | `packages/foundry/script/DeployTokenSaleV2.s.sol` | Deploys the upgrade facet on its own. |
 | `packages/foundry/script/DeployStealthBuy.s.sol` | Cuts `StealthBuy`, `ERC6538Registry` and `ERC5564Announcer` into the recorded diamond in one `diamondCut`, inits through `UpgradeMultiInit`. Broadcast by the diamond's admin. Writes `deployments/diamond/<chainId>.json` only on a real broadcast. |
@@ -82,6 +83,15 @@ Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_se
 | Add private purchases to a diamond deployed before them | `yarn foundry:deploy --file DeployStealthBuy.s.sol --network hedera_testnet` from the admin account. A diamond from the current recipe has them already, and the cut reverts there. |
 | Add sale storage | Append a field to `TokenSaleStorage`. |
 | Change the oracle | Put `PythAdapter` in the recipe instead of `ChainlinkAdapter`. `TokenSale` does not change: it reads `latestAnswer(bytes32)` on the diamond. Registering and updating a Pyth feed is yours to add. |
+| Stop the sale in an emergency | A guardian calls `emergencyStop(reason)` on the diamond, and `buy` and `buyFor` revert until the admin calls `emergencyResume()`. The deploy makes the deploying admin a guardian; the admin adds others with `addGuardian`. |
+
+Before a new facet goes in:
+
+- Compute its library's slot with `cast index-erc7201 "<namespace>"` and tag the struct `@custom:storage-location erc7201:<namespace>`, as `TokenSaleLib` does.
+- List its selectors from `forge inspect <Facet> methodIdentifiers` in `exportSelectors()`.
+- Price a payment through the diamond, `ITokenSale(address(this)).quote(tinybars)`, as `StealthBuyLib` does, so an upgraded sale's price and bonus apply.
+- Pay tokens out with `TokenSaleLib._transferFromTreasury`, which checks the HTS response code.
+- Name the file after the contract (`MyFacet` in `contracts/MyFacet.sol`). After a deploy, `scripts-js/generateTsAbis.js` reads each facet's ABI from `out/<Name>.sol/<Name>.json` and fails on a facet it cannot find there.
 
 ## Frontend contract interaction
 
@@ -120,7 +130,7 @@ UI: `HederaAddress` from `~~/components/scaffold-hbar` shows an address with its
 ## Networks
 
 - Foundry: `packages/foundry/foundry.toml` (`hedera_testnet` 296, `hedera_mainnet` 295).
-- Next.js: `packages/nextjs/scaffold.config.ts`.
+- Next.js: `packages/nextjs/scaffold.config.ts` (Hedera testnet and mainnet).
 - Chainlink HBAR/USD feed addresses are constants in `DeployDiamond.s.sol`.
 - Mirror node URLs, which the Inbox reads announcements from, are in `packages/nextjs/utils/stealth/announcements.ts`.
 
