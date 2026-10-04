@@ -2,13 +2,16 @@
 pragma solidity ^0.8.30;
 
 import { MockHederaTokenService } from "@lattice-test/mocks/hedera/MockHederaTokenService.sol";
+import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { HTS_SYSTEM_CONTRACT } from "@lattice/tokens/hedera/HTSAdapterLib.sol";
 import { Test } from "forge-std/Test.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
 import { DeployDiamond } from "../script/DeployDiamond.s.sol";
+import { MockAggregatorV3 } from "./mocks/MockAggregatorV3.sol";
 
-/// @notice Builds the production diamond through the deploy script, with Lattice's HTS mock etched at 0x167.
-///         Everything a test calls goes through the diamond, exactly as it does on Hedera.
+/// @notice Builds the production diamond through the deploy script, with Lattice's HTS mock etched at 0x167 and
+///         a mock Chainlink feed registered under the sale's key. Everything a test calls goes through the
+///         diamond, exactly as it does on Hedera.
 /// @dev Uses the default recipe frozen in `test/fixtures`, not your `diamond.recipe.json`, so these tests keep
 ///      passing after you customize the diamond's base.
 abstract contract SaleTestBase is Test {
@@ -23,6 +26,7 @@ abstract contract SaleTestBase is Test {
     address internal buyer = makeAddr("buyer");
 
     MockHederaTokenService internal hts = MockHederaTokenService(payable(HTS_SYSTEM_CONTRACT));
+    MockAggregatorV3 internal feed;
     DeployDiamond internal deployer;
     address internal diamond;
     ITokenSale internal sale;
@@ -33,6 +37,11 @@ abstract contract SaleTestBase is Test {
         deployer = new DeployDiamond();
         diamond = deployer.assemble(vm.readFile("test/fixtures/default.recipe.json"), admin);
         sale = ITokenSale(diamond);
+
+        feed = new MockAggregatorV3();
+        feed.setAnswer(0.2e8); // 1 HBAR = $0.20
+        vm.prank(admin);
+        IChainlinkAdapter(diamond).registerFeed(HBAR_USD, address(feed), 1 hours);
 
         vm.deal(admin, 100 * ONE_HBAR);
         vm.deal(buyer, 100 * ONE_HBAR);

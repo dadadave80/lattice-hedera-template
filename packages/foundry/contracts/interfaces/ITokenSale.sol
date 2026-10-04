@@ -16,10 +16,14 @@ interface ITokenSale {
 
     /// @notice `launchSale` was called on a diamond that already sells `token`.
     error TokenSaleAlreadyLaunched(address token);
+    /// @notice The sale has no token yet: `launchSale` has not been called.
+    error TokenSaleNotLaunched();
     /// @notice A price of zero, or an oracle answer that is not positive.
     error TokenSaleInvalidPrice();
     /// @notice Token decimals outside 0..18.
     error TokenSaleInvalidDecimals(int32 decimals);
+    /// @notice The payment buys no whole token unit, or more units than an `int64` can hold.
+    error TokenSaleInvalidAmount();
 
     /// @notice Creates the sale token through HTS, with the diamond as treasury, and sets its price.
     /// @dev Caller must hold `DEFAULT_ADMIN_ROLE` and `HTS_MANAGER_ROLE`. `msg.value` pays the HTS creation
@@ -35,6 +39,9 @@ interface ITokenSale {
         int64 supply,
         uint256 priceUsd
     ) external payable returns (address token);
+
+    /// @notice Token units that `tinybars` buys at the current oracle rate.
+    function quote(uint256 tinybars) external view returns (int64 tokens);
 
     /// @notice The sale's configuration and running totals.
     /// @return token The HTS token on sale, or the zero address before launch.

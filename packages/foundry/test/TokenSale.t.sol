@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
+import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
@@ -59,6 +60,36 @@ contract TokenSaleTest is SaleTestBase {
         vm.expectRevert(abi.encodeWithSelector(ITokenSale.TokenSaleInvalidDecimals.selector, int32(19)));
         sale.launchSale{ value: CREATION_FEE }("Lattice Sale Token", "LST", "", 19, SUPPLY, PRICE_USD);
         vm.stopPrank();
+    }
+
+    function test_quote_convertsHbarToTokensAtTheOracleRate() public {
+        _launch();
+
+        // 1 HBAR is $0.20 and a token costs $0.05, so 1 HBAR buys 4 tokens.
+        assertEq(sale.quote(ONE_HBAR), 4 * ONE_TOKEN);
+
+        feed.setAnswer(0.1e8); // HBAR halves, so does what it buys
+        assertEq(sale.quote(ONE_HBAR), 2 * ONE_TOKEN);
+    }
+
+    function test_quote_revertsBeforeLaunch() public {
+        vm.expectRevert(ITokenSale.TokenSaleNotLaunched.selector);
+        sale.quote(ONE_HBAR);
+    }
+
+    function test_quote_revertsWhenThePaymentBuysNothing() public {
+        _launch();
+
+        vm.expectRevert(ITokenSale.TokenSaleInvalidAmount.selector);
+        sale.quote(0);
+    }
+
+    function test_quote_revertsOnAStaleOracleAnswer() public {
+        _launch();
+        skip(2 hours); // the feed was registered with a one-hour limit
+
+        vm.expectRevert(abi.encodeWithSelector(IChainlinkAdapter.ChainlinkStaleData.selector, HBAR_USD, 1, 1 hours));
+        sale.quote(ONE_HBAR);
     }
 
     function test_storageSlot_followsErc7201() public pure {

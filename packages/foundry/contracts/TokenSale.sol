@@ -22,6 +22,11 @@ contract TokenSale is ITokenSale {
     }
 
     /// @inheritdoc ITokenSale
+    function quote(uint256 tinybars) external view virtual returns (int64 tokens) {
+        return TokenSaleLib.quote(tinybars);
+    }
+
+    /// @inheritdoc ITokenSale
     function saleInfo()
         external
         view
@@ -35,8 +40,9 @@ contract TokenSale is ITokenSale {
     /// @notice ERC-8153: the selectors this facet adds to a diamond, 4 bytes each.
     /// @dev Never includes `exportSelectors()` itself. `test/TokenSale.t.sol` checks this list against the ABI.
     ///      `launchSale(string,string,string,int32,int64,uint256)` 0xdf1d74ae
+    ///      `quote(uint256)` 0xed1bd76c
     ///      `saleInfo()` 0x8e3695b8
     function exportSelectors() external pure virtual returns (bytes memory selectors) {
-        selectors = hex"df1d74ae8e3695b8";
+        selectors = hex"df1d74aeed1bd76c8e3695b8";
     }
 }
