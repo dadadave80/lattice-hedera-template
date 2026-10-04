@@ -91,7 +91,11 @@ export const BuyPrivatelyCard = () => {
       : tinybarsToWeibars((payment ?? 0n) + (stipend ?? 0n)) +
         BUY_FOR_GAS * (feesPerGas.maxFeePerGas + feesPerGas.maxPriorityFeePerGas);
   const isShortOfHbar =
-    !isUnfunded && walletBalance !== undefined && required !== undefined && walletBalance.value < required;
+    !isUnfunded &&
+    payment !== undefined &&
+    walletBalance !== undefined &&
+    required !== undefined &&
+    walletBalance.value < required;
 
   const wagmiConfig = useConfig();
   const transactor = useTransactor();
@@ -186,7 +190,10 @@ export const BuyPrivatelyCard = () => {
               <HbarInput
                 name="private-hbar-amount"
                 placeholder="0.0"
-                onValueChange={({ valueInNative }) => setHbar(valueInNative)}
+                onValueChange={({ valueInNative }) => {
+                  setHbar(valueInNative);
+                  setDelivered(undefined);
+                }}
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
@@ -194,7 +201,10 @@ export const BuyPrivatelyCard = () => {
               <input
                 className="input input-bordered w-full"
                 value={stipendHbar}
-                onChange={event => setStipendHbar(event.target.value)}
+                onChange={event => {
+                  setStipendHbar(event.target.value);
+                  setDelivered(undefined);
+                }}
               />
             </label>
           </div>

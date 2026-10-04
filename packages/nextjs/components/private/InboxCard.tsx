@@ -133,7 +133,8 @@ const DeliveryRow = ({
 
   // The relay's reads trail consensus by a few seconds, so a read right after the sweep can still show the tokens.
   useEffect(() => {
-    refetchToken();
+    // refetch() ignores `enabled`, and before the sale loads the token reads would go to no address.
+    if (sale.isLaunched) refetchToken();
     refetchHbar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockNumber]);

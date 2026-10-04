@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, formatUnits, parseAbi, zeroAddress } from "viem";
-import { useAccount, useBalance, useBlockNumber, useReadContract, useReadContracts, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  useBalance,
+  useBlockNumber,
+  useEstimateFeesPerGas,
+  useReadContract,
+  useReadContracts,
+  useWriteContract,
+} from "wagmi";
 import { DiamondNotDeployed } from "~~/components/diamond/DiamondNotDeployed";
 import {
   useDeployedContractInfo,
@@ -97,6 +105,9 @@ export const SaleCard = () => {
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: bonusQueryKey });
     queryClient.invalidateQueries({ queryKey: walletBalanceQueryKey });
+    // refetch() ignores `enabled`, so each read is refreshed only once it has something to read.
+    if (sale.isLaunched && diamond) refetchToken();
+    if (sale.isLaunched && address) refetchAssociation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockNumber]);
 
@@ -106,12 +117,16 @@ export const SaleCard = () => {
   // A wallet that holds the token is associated, even when the read has not caught up with a buy that associated it.
   const needsAssociation =
     address !== undefined && isAssociated === false && !(typeof owned === "bigint" && owned > 0n);
-  // The wallet balance is in weibars, the amount typed in tinybars.
+  // The wallet must hold the payment plus the whole gas limit's fee up front. On testnet `buy` used 799,317 gas when it
+  // associated the buyer with the token and 93,893 gas after; these limits leave the margin wallets add.
+  const { data: feesPerGas } = useEstimateFeesPerGas({ chainId: targetNetwork.id });
+  const buyGas = isAssociated === true ? 110_000n : 900_000n;
+  const required =
+    tinybars === undefined || feesPerGas === undefined
+      ? undefined
+      : tinybarsToWeibars(tinybars) + buyGas * (feesPerGas.maxFeePerGas + feesPerGas.maxPriorityFeePerGas);
   const isShortOfHbar =
-    !isUnfunded &&
-    tinybars !== undefined &&
-    walletBalance !== undefined &&
-    tinybarsToWeibars(tinybars) > walletBalance.value;
+    !isUnfunded && walletBalance !== undefined && required !== undefined && walletBalance.value < required;
   const isShortOfTokens = quote !== undefined && typeof available === "bigint" && quote > available;
   const minTokens = quote !== undefined ? minTokensOut(quote, SLIPPAGE_BPS) : undefined;
 
@@ -236,8 +251,8 @@ export const SaleCard = () => {
       {isStopped && <p className="text-sm text-warning mt-4 mb-0">Sales are paused.</p>}
       {isShortOfHbar && (
         <p className="text-sm text-warning mt-4 mb-0">
-          Not enough HBAR: this wallet holds {formatAmount(walletBalance.value, walletBalance.decimals)} HBAR, and the
-          network fee comes on top.
+          Not enough HBAR: this purchase needs {formatAmount(required, 18)} HBAR including the network fee, and this
+          wallet holds {formatAmount(walletBalance.value, walletBalance.decimals)} HBAR.
         </p>
       )}
       {isShortOfTokens && (
