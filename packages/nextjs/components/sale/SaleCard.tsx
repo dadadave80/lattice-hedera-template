@@ -165,10 +165,10 @@ export const SaleCard = () => {
         <Stat label="Raised" value={`${formatAmount(sale.raised, TINYBAR_DECIMALS)} HBAR`} />
       </dl>
 
-      <fieldset>
-        <legend className="text-sm font-medium">Pay with HBAR</legend>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">Pay with HBAR</span>
         <HbarInput name="hbar-amount" placeholder="0.0" onValueChange={({ valueInNative }) => setHbar(valueInNative)} />
-      </fieldset>
+      </label>
       <p className="text-sm text-base-content/70 mt-2 mb-4">
         Sends {formatAmount(tinybars ?? 0n, TINYBAR_DECIMALS, TINYBAR_DECIMALS)} HBAR
         {quote !== undefined && ` · You receive about ${formatAmount(quote, sale.decimals)} ${symbol ?? ""}`}
