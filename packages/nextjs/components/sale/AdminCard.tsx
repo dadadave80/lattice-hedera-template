@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatUnits, zeroHash } from "viem";
-import { useAccount, useBalance } from "wagmi";
-import { useDeployedContractInfo, useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-hbar";
+import { useAccount, useBalance, useBlockNumber } from "wagmi";
+import {
+  useDeployedContractInfo,
+  useScaffoldReadContract,
+  useScaffoldWriteContract,
+  useTargetNetwork,
+} from "~~/hooks/scaffold-hbar";
 import { useSale } from "~~/hooks/useSale";
 import { formatAmount, hbarToTinybars, parsePositive, tinybarsToWeibars } from "~~/utils/sale/units";
 
@@ -15,6 +21,7 @@ const CREATION_FEE_HBAR = "20";
 
 export const AdminCard = () => {
   const { address } = useAccount();
+  const { targetNetwork } = useTargetNetwork();
   const sale = useSale();
   const { data: diamond } = useDeployedContractInfo({ contractName: "Diamond" });
   const { data: isAdmin } = useScaffoldReadContract({
@@ -22,7 +29,19 @@ export const AdminCard = () => {
     functionName: "hasRole",
     args: [ADMIN_ROLE, address],
   });
-  const { data: balance } = useBalance({ address: diamond?.address });
+  const queryClient = useQueryClient();
+  const {
+    data: balance,
+    refetch: refetchBalance,
+    queryKey: balanceQueryKey,
+  } = useBalance({ address: diamond?.address, chainId: targetNetwork.id });
+  const { data: blockNumber } = useBlockNumber({ watch: true, chainId: targetNetwork.id });
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: balanceQueryKey });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockNumber]);
+
   const { writeContractAsync, isMining } = useScaffoldWriteContract({ contractName: "Diamond" });
 
   const [name, setName] = useState("Lattice Sale Token");
@@ -57,6 +76,7 @@ export const AdminCard = () => {
     // `withdrawProceeds` takes tinybars as an argument; it is not a payable call.
     await writeContractAsync({ functionName: "withdrawProceeds", args: [address, withdrawalTinybars] });
     setWithdrawal("");
+    await refetchBalance();
   };
 
   return (
