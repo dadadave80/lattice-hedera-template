@@ -160,7 +160,7 @@ scaffold_checks() { # scaffold_checks local|published
   trap stop_server EXIT
   check "the app boots" wait_for_server
   local route
-  for route in / /diamond /debug /blockexplorer; do
+  for route in / /private /diamond /debug /blockexplorer; do
     check "GET $route returns OK" route_is_ok "$route"
   done
   stop_server
