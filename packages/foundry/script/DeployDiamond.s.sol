@@ -74,12 +74,13 @@ contract DeployDiamond is BaseDeploy {
         for (uint256 i; i < base.length; ++i) {
             _requireWired(base[i]);
             names[i] = base[i];
-            cuts[i] = _cut(_facet(base[i]));
+            cuts[i] = _cutExcept(_facet(base[i]), _excludedFor(json, base[i]));
         }
         names[base.length] = "HTSAdapter";
         cuts[base.length] = _cut(_facet("HTSAdapter"));
         names[base.length + 1] = "TokenSale";
         cuts[base.length + 1] = _cut(address(new TokenSale()));
+        _requireDistinctSelectors(names, cuts);
 
         uint256 steps = _stepCount(json);
         inits = new address[](steps + HEDERA_INITS);
@@ -102,6 +103,26 @@ contract DeployDiamond is BaseDeploy {
             return names;
         } catch {
             revert("Recipe: diamond.recipe.json must be valid JSON with a 'facets' list of facet names");
+        }
+    }
+
+    /// @dev `exclude`, plus every contested selector that `owners` gives to a different facet.
+    function _excludedFor(string memory json, string memory facet) internal view returns (bytes4[] memory out) {
+        string[] memory excluded =
+            vm.keyExistsJson(json, ".exclude") ? vm.parseJsonStringArray(json, ".exclude") : new string[](0);
+        string[] memory contested =
+            vm.keyExistsJson(json, ".owners") ? vm.parseJsonKeys(json, ".owners") : new string[](0);
+        out = new bytes4[](excluded.length + contested.length);
+        uint256 n;
+        for (uint256 i; i < excluded.length; ++i) {
+            out[n++] = bytes4(vm.parseBytes(excluded[i]));
+        }
+        for (uint256 i; i < contested.length; ++i) {
+            string memory owner = vm.parseJsonString(json, string.concat(".owners['", contested[i], "']"));
+            if (!_eq(owner, facet)) out[n++] = bytes4(vm.parseBytes(contested[i]));
+        }
+        assembly ("memory-safe") {
+            mstore(out, n)
         }
     }
 
@@ -172,6 +193,34 @@ contract DeployDiamond is BaseDeploy {
                 " is in the recipe but not compiled into this project; add its import to contracts/LatticeFacets.sol"
             )
         );
+    }
+
+    /// @dev A diamond routes each selector to exactly one facet. Checking here names both facets, where the
+    ///      diamond's own error would name neither.
+    function _requireDistinctSelectors(string[] memory names, FacetCut[] memory cuts) internal pure {
+        for (uint256 a; a < cuts.length; ++a) {
+            for (uint256 b = a + 1; b < cuts.length; ++b) {
+                bytes4[] memory left = cuts[a].functionSelectors;
+                bytes4[] memory right = cuts[b].functionSelectors;
+                for (uint256 i; i < left.length; ++i) {
+                    for (uint256 j; j < right.length; ++j) {
+                        if (left[i] == right[j]) {
+                            revert(
+                                string.concat(
+                                    "Recipe: selector ",
+                                    vm.toString(abi.encodePacked(left[i])),
+                                    " is exported by both ",
+                                    names[a],
+                                    " and ",
+                                    names[b],
+                                    "; give it one owner in Lattice Studio (owners) or drop it (exclude)"
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     function _eq(string memory a, string memory b) internal pure returns (bool) {

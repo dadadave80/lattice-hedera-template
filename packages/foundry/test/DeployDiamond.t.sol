@@ -27,6 +27,7 @@ contract DeployDiamondHarness is DeployDiamond {
 
 contract DeployDiamondTest is Test {
     bytes4 internal constant LATEST_ANSWER = 0x084d4783;
+    bytes4 internal constant UNREGISTER_FEED = 0x2a589908;
     address internal constant HBAR_USD_FEED_TESTNET = 0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a;
 
     address internal admin = makeAddr("admin");
@@ -90,6 +91,23 @@ contract DeployDiamondTest is Test {
         assertEq(IPythAdapter(diamond).pyth(), 0xA2aa501b19aff244D90cc15a4Cf739D2725B5729, "PythAdapterInit ran");
     }
 
+    function test_owners_routeAContestedSelectorToItsOwner() public {
+        (address diamond,, FacetCut[] memory cuts) = _diamond(vm.readFile("test/fixtures/both-oracles.recipe.json"));
+
+        // The fixture lists ChainlinkAdapter then PythAdapter, and gives the four shared selectors to Pyth.
+        assertEq(cuts[0].functionSelectors.length, 1, "Chainlink keeps only its own registerFeed");
+        assertEq(cuts[0].functionSelectors[0], IChainlinkAdapter.registerFeed.selector);
+        assertEq(IDiamondLoupe(diamond).facetAddress(LATEST_ANSWER), cuts[1].facetAddress);
+    }
+
+    function test_exclude_leavesTheSelectorOutOfTheDiamond() public {
+        (address diamond, string[] memory names,) = _diamond(vm.readFile("test/fixtures/more-facets.recipe.json"));
+
+        assertEq(names.length, 11, "nine base facets plus the Hedera layer");
+        assertEq(IDiamondLoupe(diamond).facetAddress(UNREGISTER_FEED), address(0));
+        assertTrue(IDiamondLoupe(diamond).facetAddress(LATEST_ANSWER) != address(0));
+    }
+
     function test_build_revertsWhenAFacetIsNotCompiledIn() public {
         string memory json = vm.replace(recipe, '"ERC165Facet"', '"ERC165Facet", "RateLimiter"');
 
@@ -106,6 +124,17 @@ contract DeployDiamondTest is Test {
         string memory json = vm.replace(recipe, '"ERC165Facet"', '"ERC165Facet", "TokenSale"');
 
         vm.expectRevert(bytes("BaseDeploy: TokenSale is not in FacetInventory"));
+        deployer.build(json, admin);
+    }
+
+    function test_build_revertsWhenTwoFacetsExportTheSameSelector() public {
+        string memory json = vm.replace(recipe, '"ChainlinkAdapter",', '"ChainlinkAdapter", "PythAdapter",');
+
+        vm.expectRevert(
+            bytes(
+                "Recipe: selector 0x280aebcf is exported by both ChainlinkAdapter and PythAdapter; give it one owner in Lattice Studio (owners) or drop it (exclude)"
+            )
+        );
         deployer.build(json, admin);
     }
 
