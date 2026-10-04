@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Address, Hex, isAddress, parseAbi, zeroAddress } from "viem";
 import { usePublicClient } from "wagmi";
 import { HederaAddress } from "~~/components/scaffold-hbar";
@@ -38,11 +38,20 @@ export const UpgradeCard = () => {
 
   // `yarn foundry:deploy --file DeployTokenSaleV2.s.sol` records the walkthrough's facet here.
   const deployed = contracts?.[targetNetwork.id] as Record<string, GenericContract> | undefined;
-  const [facet, setFacet] = useState<string>(deployed?.TokenSaleV2?.address ?? "");
+  const prefilled = deployed?.TokenSaleV2?.address ?? "";
+  const [facet, setFacet] = useState<string>(prefilled);
   const [plan, setPlan] = useState<{ facet: Address; cuts: FacetCut[]; facets: readonly LoupeFacet[] }>();
+  const latestPreview = useRef(0);
+
+  useEffect(() => {
+    latestPreview.current++;
+    setFacet(prefilled);
+    setPlan(undefined);
+  }, [targetNetwork.id, diamond?.address, prefilled]);
 
   const preview = async () => {
     if (!publicClient || !diamond || !isAddress(facet)) return;
+    const request = ++latestPreview.current;
     try {
       const [packed, loupe] = await Promise.all([
         publicClient.readContract({ address: facet, abi: upgradeAbi, functionName: "exportSelectors" }),
@@ -52,8 +61,10 @@ export const UpgradeCard = () => {
       const routes = selectors.map(
         selector => loupe.find(row => row.functionSelectors.includes(selector))?.facetAddress ?? zeroAddress,
       );
+      if (request !== latestPreview.current) return;
       setPlan({ facet, cuts: planCut(facet, selectors, routes), facets: loupe });
     } catch {
+      if (request !== latestPreview.current) return;
       setPlan(undefined);
       notification.error("That address does not answer exportSelectors(). Is it a deployed Lattice facet?");
     }
@@ -61,8 +72,12 @@ export const UpgradeCard = () => {
 
   const cut = async () => {
     if (!plan) return;
-    await writeContractAsync({ functionName: "diamondCut", args: [plan.cuts, zeroAddress, "0x"] });
-    setPlan(undefined);
+    try {
+      const hash = await writeContractAsync({ functionName: "diamondCut", args: [plan.cuts, zeroAddress, "0x"] });
+      if (hash) setPlan(undefined);
+    } catch {
+      // The transactor has already shown the error.
+    }
   };
 
   if (!diamond) return null;
@@ -93,6 +108,7 @@ export const UpgradeCard = () => {
           placeholder="0x… facet address"
           value={facet}
           onChange={event => {
+            latestPreview.current++;
             setFacet(event.target.value);
             setPlan(undefined);
           }}
