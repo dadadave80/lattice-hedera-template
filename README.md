@@ -164,7 +164,9 @@ What `buyFor(stealthAddress, ephemeralPubKey, viewTag, minTokensOut, stipend)` d
 3. Transfers the tokens from the diamond's treasury to the new account through the HTS system contract, checking the response code as `buy` does. The account associates with the token as it receives it.
 4. Emits ERC-5564's `Announcement` with scheme id 1, the payer as `caller`, the ephemeral public key, and 57 bytes of metadata: the view tag, the ERC-20 `transfer` selector `0xa9059cbb`, the token's address and the amount. Then it emits `StealthDelivery` with the tokens, the payment and the stipend.
 
-The sweep is the stealth account's first transaction. Hedera completes the hollow account with the key that signed it, and the stipend pays the gas. A sweep cost about 0.03 HBAR on testnet.
+The sweep is the stealth account's first transaction. Hedera completes the hollow account with the key that signed it, and the stipend pays the gas. A sweep cost about 0.03 HBAR on testnet. The sweep moves the tokens only: the rest of the stipend stays on the stealth address.
+
+Creating the account makes a private purchase cost more gas than `buy`: 1,433,536 gas, about 1.2 HBAR on testnet, paid by the payer. Hedera charges the gas used, but the payer must hold the whole limit's worth when sending, so the app sets a limit of 2,000,000.
 
 ### Why this is simple on Hedera
 
@@ -177,7 +179,7 @@ A stealth address is new by design, so nothing exists at it yet. On Hedera that 
 - **The anonymity set is everyone who registered a meta-address on this diamond.** An observer can tell a delivery went to one of them, not to which one. A small set hides little.
 - **Sweeping to the registering wallet re-links it to the delivery**, as does sweeping to any address tied to that wallet. The Inbox warns when the destination is the connected wallet.
 - **The keys come from a signature.** Anyone who can make the wallet sign the same message can derive the same keys, find every delivery and spend it. The message says to sign it only on this site.
-- **The Inbox reads every announcement.** It fetches all of the diamond's announcements and checks them in the browser, so the mirror node does not learn which deliveries are the reader's. The balance reads and the sweep that follow go through the app's JSON-RPC endpoint, which does see those stealth addresses.
+- **The Inbox reads every announcement.** It fetches all of the diamond's announcements and checks them in the browser, so the mirror node does not learn which deliveries are the reader's. The balance reads and the sweep that follow go through the app's JSON-RPC endpoint, and the Hedera account ID shown for each one comes through the app's own `/api/hedera/account` route. Both see the stealth addresses one browser asks about.
 - **Anyone can announce.** The diamond's `ERC5564Announcer` lets any account emit an `Announcement`. The Inbox keeps the first announcement for each stealth address and uses the sale's token, not the token an announcement names.
 
 ### Private purchases on testnet
@@ -186,13 +188,16 @@ The reference diamond predates `StealthBuy`, so its admin added private purchase
 
 | What | Where |
 | --- | --- |
-| The cut that added `StealthBuy`, `ERC6538Registry` and `ERC5564Announcer` and ran their initializers | [`{{CUT_TX}}`](https://hashscan.io/testnet/transaction/{{CUT_TX}}) |
-| `StealthBuy` | [`{{STEALTHBUY_ADDRESS}}`](https://hashscan.io/testnet/contract/{{STEALTHBUY_ADDRESS}}) |
-| `ERC6538Registry` | [`{{REGISTRY_ADDRESS}}`](https://hashscan.io/testnet/contract/{{REGISTRY_ADDRESS}}) |
-| `ERC5564Announcer` | [`{{ANNOUNCER_ADDRESS}}`](https://hashscan.io/testnet/contract/{{ANNOUNCER_ADDRESS}}) |
-| A private purchase (`buyFor`) | [`{{BUYFOR_TX}}`](https://hashscan.io/testnet/transaction/{{BUYFOR_TX}}) |
-| The stealth account it created | [`{{STEALTH_ADDRESS}}`](https://hashscan.io/testnet/account/{{STEALTH_ADDRESS}}) |
-| The sweep, signed by the stealth account | [`{{SWEEP_TX}}`](https://hashscan.io/testnet/transaction/{{SWEEP_TX}}) |
+| The cut that added `StealthBuy`, `ERC6538Registry` and `ERC5564Announcer` and ran their initializers | [`0xd18506b3c9efbb7f9dae6fdc594cce31ed7af1cae825a1de0b6dac83df692fa3`](https://hashscan.io/testnet/transaction/0xd18506b3c9efbb7f9dae6fdc594cce31ed7af1cae825a1de0b6dac83df692fa3) |
+| `StealthBuy` | [`0xC02a53F91385DA8603c18d531626b74ebe0CE859`](https://hashscan.io/testnet/contract/0xC02a53F91385DA8603c18d531626b74ebe0CE859) |
+| `ERC6538Registry` | [`0xC29dA6507822a117153B77a42ACF4bE59B8C57e0`](https://hashscan.io/testnet/contract/0xC29dA6507822a117153B77a42ACF4bE59B8C57e0) |
+| `ERC5564Announcer` | [`0xD0Eb7D476002c23f4AAF36344058067EA2a12492`](https://hashscan.io/testnet/contract/0xD0Eb7D476002c23f4AAF36344058067EA2a12492) |
+| The recipient `0x061Af5392697EDD4BD08f326f7BeCaE1fe035b64` registers its meta-address | [`0xa4388212f333018c91fcc91a8cee97602ede279f8aa4a1337ef6ce915b1ae2be`](https://hashscan.io/testnet/transaction/0xa4388212f333018c91fcc91a8cee97602ede279f8aa4a1337ef6ce915b1ae2be) |
+| Another account buys 2 HBAR of tokens for it with `buyFor` (1,433,536 gas). The recipient's address appears nowhere in it | [`0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006`](https://hashscan.io/testnet/transaction/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006) |
+| The stealth account it created | [`0xE34b6e5Ac8FEc6e07c3Fc5846E53A444CFCfC326`](https://hashscan.io/testnet/account/0xE34b6e5Ac8FEc6e07c3Fc5846E53A444CFCfC326) |
+| The sweep to a fresh account, signed by the stealth account (36,892 gas) | [`0x70f7a839d211ed29ad559f13e38ed8f61283e4757385653b8c55ee15964fbbad`](https://hashscan.io/testnet/transaction/0x70f7a839d211ed29ad559f13e38ed8f61283e4757385653b8c55ee15964fbbad) |
+
+The same flow ran through the **Private** page with the app's burner wallet: [register](https://hashscan.io/testnet/transaction/0x8854f0c12b59d2696e104945b3f979f721d50667db24c7b4cace4e404bbcb8a1), [buy privately](https://hashscan.io/testnet/transaction/0x7a48b780617ed5483847437e9c85da97c96d836a18729faea5c72ee5ec4511d4), [sweep](https://hashscan.io/testnet/transaction/0xfe92af609c889f07a393afd1ca48777a14aac3660ce99a86cf98c5feba2deae9).
 
 Before `StealthBuy` was written, each Hedera behavior it depends on was tried on testnet:
 
@@ -308,7 +313,7 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 | `TokenSaleBuyerNotAssociated` | The buyer has not associated with the token. Use the Associate button. |
 | `ChainlinkStaleData` | The feed's last update is older than the registered limit. Register the feed again with a larger `maxStaleness`. |
 | `HTSCallFailed` on `launchSale` | The HBAR sent did not cover the creation fee. Send more with `--value`. |
-| `INSUFFICIENT_GAS` on `buyFor` | `buyFor` creates the stealth account and associates it with the token, which takes far more gas than a plain purchase. Set the gas limit yourself, in the wallet or with `--gas-limit`: 4,000,000 is safe, and Hedera charges only the gas used. |
+| `INSUFFICIENT_GAS` on `buyFor` | `buyFor` creates the stealth account and associates it with the token, which takes far more gas than a plain purchase. The **Private** page sets 2,000,000; it used 1,433,536 on testnet. From a script or another app, set the limit yourself with `--gas-limit 2000000`. Hedera charges only the gas used, but the payer must hold the limit's worth when sending. |
 | "This diamond does not sell privately yet" on the Private page | No facet serves `buyFor`: the diamond was deployed before private purchases. Its admin runs `yarn foundry:deploy --file DeployStealthBuy.s.sol --network hedera_testnet`. |
 | "No diamond on Hedera Mainnet" in the app | The wallet is on a network this project has no diamond on. Switch to Hedera Testnet. |
 

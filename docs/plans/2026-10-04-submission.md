@@ -7,7 +7,7 @@ Bounty: Scaffold-HBAR Template Bounty. Submissions close Sunday 4 October 2026, 
 | Field | Value |
 | --- | --- |
 | Public GitHub repository | https://github.com/dadadave80/lattice-hedera-template |
-| HashScan link | https://hashscan.io/testnet/transaction/0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f (the upgrade to `TokenSaleV2`), or the private purchase, https://hashscan.io/testnet/transaction/{{BUYFOR_TX}}, once it is on testnet |
+| HashScan link | https://hashscan.io/testnet/transaction/0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f (the upgrade to `TokenSaleV2`), or the private purchase, https://hashscan.io/testnet/transaction/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006 |
 | Scaffold command | `npm create scaffold-hbar@latest -- --template dadadave80/lattice-hedera-template` |
 | Developer experience survey | answered by David, using the notes below |
 
