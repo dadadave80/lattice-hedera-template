@@ -124,7 +124,9 @@ A facet holds no state. Each Lattice module is three files: an interface, a libr
 - **Token keys on a diamond.** A facet runs inside a `delegatecall`, so HTS only honours `delegatableContractId` keys for it. Lattice's `HTSAdapterLib` sets the admin and supply keys that way when the diamond creates the token.
 - **Oracle freshness.** `ChainlinkAdapter` rejects an answer older than the limit set when the feed was registered. Testnet feeds are not kept on a production heartbeat, so the testnet default is 365 days. On mainnet the default is 25 hours. Set `HBAR_USD_MAX_STALENESS` (seconds) before deploying to choose your own.
 
-## Upgrade the live diamond
+## Upgrade your diamond
+
+This upgrades the diamond you deployed in "Deploy your own diamond". Only a diamond's admin can cut it, and the admin of the reference diamond is the template author. Step 1 regenerates `packages/nextjs/contracts/deployedContracts.ts` from `packages/foundry/deployments/`, which is git-ignored. Without the record your own deployment wrote there, the file loses its `Diamond` and the app stops finding it.
 
 `TokenSaleV2` is `TokenSale` with a 5% bonus and one new function, `bonusBps()`.
 
@@ -176,7 +178,7 @@ The deploy script stops before sending anything when a recipe cannot be built, a
 
 1. Write the interface, the library and the facet under `packages/foundry/contracts/`, the way `ITokenSale`, `TokenSaleLib` and `TokenSale` are written. Give the library its own storage slot.
 2. Return the facet's selectors from `exportSelectors()`.
-3. For a new deployment, add the facet next to `TokenSale` in `build()` in `DeployDiamond.s.sol`. For a live diamond, deploy it and cut it from the Diamond page.
+3. For a new deployment, add the facet next to `TokenSale` in `build()` in `DeployDiamond.s.sol` and raise `HEDERA_FACETS` (and `HEDERA_INITS`, if the facet has an initializer). For a live diamond, deploy it and cut it from the Diamond page.
 4. Test it through the diamond, as `test/SaleTestBase.sol` does.
 
 ## Commands
@@ -184,7 +186,7 @@ The deploy script stops before sending anything when a recipe cannot be built, a
 | Command | What it does |
 | --- | --- |
 | `yarn foundry:test` | Forge tests against a mock HTS and a mock feed, then the Node tests for the scripts. No chain needed. |
-| `yarn next:test` | Unit tests for the frontend's unit conversion and cut planning. |
+| `yarn next:test` | Unit tests for the frontend's unit conversion, cut planning and selector names. |
 | `yarn next:dev` | The app, on `http://localhost:3000`. |
 | `yarn foundry:deploy --network hedera_testnet` | Deploys the diamond from the recipe and regenerates the frontend's contract file. |
 | `yarn foundry:deploy --file DeployTokenSaleV2.s.sol --network hedera_testnet` | Deploys the upgrade facet. |
@@ -211,6 +213,8 @@ Environment variables are optional. `packages/foundry/.env.example` and `package
 
 - Not audited. Lattice is pre-1.0 and unaudited too. Do not put real value behind this without a review.
 - There is no local-chain mode. HTS and the Chainlink feed exist only on Hedera, so contract tests run against mocks and the app runs against testnet.
+- A recipe can name another admin, but the deploy script also makes the deploying account admin and gives it `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE`. It needs admin to register the feed and the manager role to let the sale create the token. To hand over control, grant `DEFAULT_ADMIN_ROLE`, `HTS_MANAGER_ROLE` and `HTS_OPERATOR_ROLE` to the new admin, then have the deployer renounce all three after the deploy.
+- The app's upgrade card plans Add and Replace only. A function the outgoing facet serves that the new facet does not export stays routed to the old facet, and the preview lists those functions. Removing them is a separate Remove cut, for example from Debug Contracts or with `cast`.
 - The package manager is Yarn.
 
 ## Links

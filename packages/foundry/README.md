@@ -44,7 +44,7 @@ From the repository root the same commands are `yarn foundry:deploy ...`.
 - Use Foundry 1.7.1 (`foundryup --install v1.7.1`). Foundry 1.8 cannot run `forge script` against Hedera's relay yet.
 - The deployer must be an account that exists on Hedera: generate a keystore with `yarn account:generate` and fund its address from the [faucet](https://portal.hedera.com/faucet).
 - The Makefile passes `--slow --legacy`: one transaction at a time, with legacy gas pricing, which is what the relay expects.
-- Facets are deployed through the deterministic deployment proxy, so a facet that is already on the network at its address is reused instead of deployed again.
+- Lattice facets (the recipe's, and `HTSAdapter`) are deployed at deterministic addresses, through CreateX or the deterministic deployment proxy where the chain has one, so a facet that is already on the network at its address is reused instead of deployed again. `TokenSale` and the initializers use plain `CREATE`, so every run deploys them again.
 
 A deploy writes three things:
 

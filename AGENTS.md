@@ -65,7 +65,7 @@ Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_se
 | Swap or add a Lattice facet in a new deployment | Edit `diamond.recipe.json` (or export over it from Lattice Studio), run `yarn foundry:test`, deploy. |
 | Use a Lattice facet that is not compiled in | Add its import to `contracts/LatticeFacets.sol`. If its init takes more than `admin`, add an encoder in `_initStep` in `DeployDiamond.s.sol`. |
 | Change the sale's behaviour on a live diamond | Write a new facet (copy `TokenSaleV2.sol`), deploy it with its own script, cut it in from the Diamond page. |
-| Add your own facet to new deployments | Interface, library with its own slot, facet with `exportSelectors()`. Add it next to `TokenSale` in `build()` in `DeployDiamond.s.sol` and raise `HEDERA_FACETS`. |
+| Add your own facet to new deployments | Interface, library with its own slot, facet with `exportSelectors()`. Add it next to `TokenSale` in `build()` in `DeployDiamond.s.sol` and raise `HEDERA_FACETS` (and `HEDERA_INITS`, if it has an initializer). |
 | Add sale storage | Append a field to `TokenSaleStorage`. |
 | Change the oracle | Put `PythAdapter` in the recipe instead of `ChainlinkAdapter`. `TokenSale` does not change: it reads `latestAnswer(bytes32)` on the diamond. Registering and updating a Pyth feed is yours to add. |
 
@@ -92,7 +92,7 @@ The hook names are `useScaffoldReadContract` and `useScaffoldWriteContract`, not
 
 An HTS token answers ERC-20 reads (`name`, `symbol`, `balanceOf`) and the HIP-719 calls `associate()` and `isAssociated()` at its own address. Call those with wagmi's `useReadContract` and `useWriteContract`, as `SaleCard.tsx` does. An account must associate with the token before it can receive it, unless it has a free automatic association slot (HIP-904). Accounts created from an EVM address have unlimited slots, so their first purchase associates them.
 
-A function added by a cut (for example `bonusBps()` after the upgrade to `TokenSaleV2`) is not in the generated `Diamond` ABI until the next full deploy. Read it with an inline ABI, as `SaleCard.tsx` does.
+A function added by a cut (for example `bonusBps()` after the upgrade to `TokenSaleV2`) is not in the generated `Diamond` ABI. That ABI is built from the facets the deploy script cuts in when it creates the diamond, and a full deploy still cuts `TokenSale`. Read it with an inline ABI, as `SaleCard.tsx` does.
 
 UI: `HederaAddress` from `~~/components/scaffold-hbar` shows an address with its HashScan link. `HbarInput` and `HederaPortalFaucet` come from `@scaffold-hbar-ui/components`. Use DaisyUI classes (`btn btn-primary`, `badge`, `table`) before raw Tailwind.
 
