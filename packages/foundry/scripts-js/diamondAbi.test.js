@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeDiamondAbi, signatureOf } from "./diamondAbi.js";
+import {
+  isPlumbing,
+  mergeDiamondAbi,
+  signatureOf,
+  withDiamond,
+} from "./diamondAbi.js";
 
 const fn = (name, inputs = []) => ({
   type: "function",
@@ -79,4 +84,44 @@ test("mergeDiamondAbi drops constructors", () => {
   };
 
   assert.deepEqual(mergeDiamondAbi([facet]), [{ type: "receive" }]);
+});
+
+test("isPlumbing hides deploy helpers, initializers and the diamond's own facets", () => {
+  const facets = ["HTSAdapter", "TokenSale"];
+
+  assert.equal(isPlumbing("LatticeFactory", facets), true);
+  assert.equal(isPlumbing("TokenSaleInit", facets), true);
+  assert.equal(isPlumbing("TokenSale", facets), true);
+  assert.equal(isPlumbing("TokenSaleV2", facets), false);
+});
+
+test("withDiamond gives the chain one Diamond and keeps what was deployed on its own", () => {
+  const artifacts = {
+    TokenSale: {
+      abi: [fn("buy"), event("TokensPurchased")],
+      methodIdentifiers: { "buy()": "08bf598d" },
+    },
+  };
+  const record = {
+    address: "0xD1a0000000000000000000000000000000000000",
+    deployedOnBlock: 42,
+    facets: ["TokenSale"],
+    selectors: { TokenSale: ["0x08bf598d"] },
+  };
+  const broadcast = {
+    TokenSale: { address: "0x1" },
+    TokenSaleInit: { address: "0x2" },
+    LatticeFactory: { address: "0x3" },
+    TokenSaleV2: { address: "0x4" },
+  };
+
+  const contracts = withDiamond(broadcast, record, (name) => artifacts[name]);
+
+  assert.deepEqual(Object.keys(contracts), ["Diamond", "TokenSaleV2"]);
+  assert.deepEqual(contracts.Diamond, {
+    address: record.address,
+    abi: artifacts.TokenSale.abi,
+    inheritedFunctions: {},
+    deployedOnBlock: 42,
+  });
 });

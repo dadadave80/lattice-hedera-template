@@ -1,6 +1,25 @@
 // A Lattice diamond is many facets behind one address. These helpers turn the deploy script's record of
 // that diamond into what the frontend wants: a single contract with a single ABI.
 
+/** Contracts a Lattice deploy creates along the way that the app never calls. */
+const DEPLOY_PLUMBING = new Set([
+  "LatticeRegistry",
+  "LatticeFactory",
+  "MultiInit",
+]);
+
+/**
+ * True for a contract the frontend should not list on its own: deploy plumbing, an initializer,
+ * or a facet that is already reachable through the diamond.
+ */
+export function isPlumbing(contractName, facetNames) {
+  return (
+    DEPLOY_PLUMBING.has(contractName) ||
+    contractName.endsWith("Init") ||
+    facetNames.includes(contractName)
+  );
+}
+
 function canonicalType(parameter) {
   if (!parameter.type.startsWith("tuple")) return parameter.type;
   const components = parameter.components.map(canonicalType).join(",");
@@ -40,4 +59,31 @@ export function mergeDiamondAbi(facets) {
     }
   }
   return merged;
+}
+
+/**
+ * A chain's contracts as the frontend should see them: one `Diamond`, followed by whatever was deployed
+ * on its own (an upgrade facet waiting to be cut in, for example).
+ *
+ * @param contracts what the broadcast files list for the chain, keyed by contract name
+ * @param record the deploy script's `deployments/diamond/<chainId>.json`
+ * @param artifactOf returns a contract's Forge artifact by name
+ */
+export function withDiamond(contracts, record, artifactOf) {
+  const facets = record.facets.map((name) => {
+    const { abi, methodIdentifiers } = artifactOf(name);
+    return { abi, methodIdentifiers, selectors: record.selectors[name] };
+  });
+  const standalone = Object.entries(contracts).filter(
+    ([name]) => !isPlumbing(name, record.facets)
+  );
+  return {
+    Diamond: {
+      address: record.address,
+      abi: mergeDiamondAbi(facets),
+      inheritedFunctions: {},
+      deployedOnBlock: record.deployedOnBlock,
+    },
+    ...Object.fromEntries(standalone),
+  };
 }

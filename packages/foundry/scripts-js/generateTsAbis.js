@@ -9,6 +9,7 @@ import {
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { format } from "prettier";
+import { withDiamond } from "./diamondAbi.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -240,6 +241,23 @@ function main() {
       }
     });
   });
+
+  // A Lattice diamond is created inside a factory call, so the broadcast never lists it as a contract
+  // creation. The deploy script records it in deployments/diamond/<chainId>.json instead. Give the
+  // frontend one `Diamond` contract per chain whose ABI is the union of what its facets serve.
+  const diamondRecordsPath = join(current_path_to_deployments, "diamond");
+  if (existsSync(diamondRecordsPath)) {
+    getFiles(diamondRecordsPath).forEach((file) => {
+      if (!file.endsWith(".json")) return;
+      const chainId = file.slice(0, -5);
+      const record = JSON.parse(readFileSync(join(diamondRecordsPath, file)));
+      allGeneratedContracts[chainId] = withDiamond(
+        allGeneratedContracts[chainId] ?? {},
+        record,
+        getArtifactOfContract
+      );
+    });
+  }
 
   // Resolve nextjs contracts dir from this package (packages/foundry/scripts-js -> packages/nextjs/contracts)
   const NEXTJS_TARGET_DIR = join(__dirname, "..", "..", "nextjs", "contracts");
