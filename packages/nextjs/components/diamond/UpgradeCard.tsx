@@ -11,6 +11,7 @@ import {
   FacetCutAction,
   LoupeFacet,
   knownContractName,
+  leftOnOutgoingFacets,
   outgoingFacets,
   planCut,
   selectorsOutsideSale,
@@ -67,7 +68,15 @@ export const UpgradeCard = () => {
   if (!diamond) return null;
 
   const nameList = (selectors: readonly Hex[]) => selectors.map(selector => names.get(selector) ?? selector).join(", ");
+  const facetRow = ({ facetAddress, functionSelectors }: LoupeFacet, label: string) => (
+    <li key={facetAddress} className="flex flex-wrap items-center gap-2">
+      <span className="font-mono text-xs">{nameList(functionSelectors)}</span>
+      <span className="text-base-content/60">{label}</span>
+      <HederaAddress address={facetAddress} chain={targetNetwork} />
+    </li>
+  );
   const known = plan && knownContractName(plan.facet, deployed);
+  const left = plan ? leftOnOutgoingFacets(plan.cuts, plan.facets) : [];
   const outside = plan ? selectorsOutsideSale(plan.cuts, plan.facets) : [];
 
   return (
@@ -119,13 +128,7 @@ export const UpgradeCard = () => {
                 <span className="font-semibold">{ACTION_LABELS[planned.action]}</span>{" "}
                 {planned.action === FacetCutAction.Replace ? (
                   <ul className="m-0 mt-1 p-0 list-none flex flex-col gap-2">
-                    {outgoingFacets([planned], plan.facets).map(from => (
-                      <li key={from.facetAddress} className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs">{nameList(from.functionSelectors)}</span>
-                        <span className="text-base-content/60">now served by</span>
-                        <HederaAddress address={from.facetAddress} chain={targetNetwork} />
-                      </li>
-                    ))}
+                    {outgoingFacets([planned], plan.facets).map(from => facetRow(from, "now served by"))}
                   </ul>
                 ) : (
                   <span className="font-mono text-xs">{nameList(planned.functionSelectors)}</span>
@@ -133,6 +136,18 @@ export const UpgradeCard = () => {
               </li>
             ))}
           </ul>
+          {left.length > 0 && (
+            <div className="text-sm mt-4">
+              <span className="font-semibold">Still served by the outgoing facet</span>
+              <p className="text-base-content/70 m-0 mt-1">
+                The new facet does not export these, and a Replace leaves them in place. Removing them takes a separate
+                Remove cut.
+              </p>
+              <ul className="m-0 mt-2 p-0 list-none flex flex-col gap-2">
+                {left.map(from => facetRow(from, "still on"))}
+              </ul>
+            </div>
+          )}
           {outside.length > 0 && (
             <div role="alert" className="alert alert-warning text-sm mt-4">
               <span>

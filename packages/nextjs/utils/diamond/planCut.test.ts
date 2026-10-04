@@ -1,7 +1,9 @@
 import {
   FacetCut,
   FacetCutAction,
+  LoupeFacet,
   knownContractName,
+  leftOnOutgoingFacets,
   outgoingFacets,
   planCut,
   selectorsOutsideSale,
@@ -135,6 +137,42 @@ describe("selectorsOutsideSale", () => {
   it("flags every replaced selector when no facet serves buy", () => {
     expect(selectorsOutsideSale([replace(QUOTE)], [{ facetAddress: OLD_FACET, functionSelectors: [QUOTE] }])).toEqual([
       QUOTE,
+    ]);
+  });
+});
+
+describe("leftOnOutgoingFacets", () => {
+  const v2Mounted: LoupeFacet = { facetAddress: OLD_FACET, functionSelectors: [BUY, QUOTE, BONUS_BPS] };
+  const v1Mounted: LoupeFacet = { facetAddress: OLD_FACET, functionSelectors: [BUY, QUOTE] };
+
+  it("lists what an outgoing facet still serves that the new facet does not export, such as bonusBps when V1 replaces V2", () => {
+    expect(leftOnOutgoingFacets([replace(BUY, QUOTE)], [v2Mounted])).toEqual([
+      { facetAddress: OLD_FACET, functionSelectors: [BONUS_BPS] },
+    ]);
+  });
+
+  it("lists nothing when the new facet takes over everything the outgoing facet serves", () => {
+    expect(leftOnOutgoingFacets([replace(BUY, QUOTE)], [v1Mounted])).toEqual([]);
+  });
+
+  it("lists nothing when the plan replaces nothing", () => {
+    expect(leftOnOutgoingFacets([add(BONUS_BPS)], [v1Mounted])).toEqual([]);
+  });
+
+  it("leaves out a facet that loses no selector", () => {
+    const bystander: LoupeFacet = { facetAddress: CUT_FACET, functionSelectors: [DIAMOND_CUT] };
+
+    expect(leftOnOutgoingFacets([replace(BUY)], [v2Mounted, bystander])).toEqual([
+      { facetAddress: OLD_FACET, functionSelectors: [QUOTE, BONUS_BPS] },
+    ]);
+  });
+
+  it("reports each outgoing facet on its own", () => {
+    const other: LoupeFacet = { facetAddress: SALE_FACET, functionSelectors: ["0x2f2ff15d", "0x11111111"] };
+
+    expect(leftOnOutgoingFacets([replace(BUY, "0x2f2ff15d")], [v2Mounted, other])).toEqual([
+      { facetAddress: OLD_FACET, functionSelectors: [QUOTE, BONUS_BPS] },
+      { facetAddress: SALE_FACET, functionSelectors: ["0x11111111"] },
     ]);
   });
 });

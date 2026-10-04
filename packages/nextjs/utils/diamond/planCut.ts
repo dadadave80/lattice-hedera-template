@@ -44,6 +44,10 @@ export function planCut(facet: Address, selectors: Hex[], routes: Address[]): Fa
   return cuts;
 }
 
+function replacedSelectors(cuts: FacetCut[]) {
+  return new Set(cuts.filter(cut => cut.action === FacetCutAction.Replace).flatMap(cut => cut.functionSelectors));
+}
+
 /** The name of the contract in `deployed` at `address`, ignoring letter case, if this project deployed it. */
 export function knownContractName(address: Address, deployed?: Record<string, { address: string }>) {
   return Object.entries(deployed ?? {}).find(
@@ -53,11 +57,24 @@ export function knownContractName(address: Address, deployed?: Record<string, { 
 
 /** The facets a plan takes selectors from, each with the selectors it loses. */
 export function outgoingFacets(cuts: FacetCut[], facets: readonly LoupeFacet[]): LoupeFacet[] {
-  const replaced = new Set(
-    cuts.filter(cut => cut.action === FacetCutAction.Replace).flatMap(cut => cut.functionSelectors),
-  );
+  const replaced = replacedSelectors(cuts);
   return facets
     .map(facet => ({ ...facet, functionSelectors: facet.functionSelectors.filter(selector => replaced.has(selector)) }))
+    .filter(facet => facet.functionSelectors.length > 0);
+}
+
+/**
+ * What the facets a plan takes selectors from keep serving, because the new facet does not export it. A Replace
+ * never drops a selector, so removing these takes a separate Remove cut.
+ */
+export function leftOnOutgoingFacets(cuts: FacetCut[], facets: readonly LoupeFacet[]): LoupeFacet[] {
+  const replaced = replacedSelectors(cuts);
+  return facets
+    .filter(facet => facet.functionSelectors.some(selector => replaced.has(selector)))
+    .map(facet => ({
+      ...facet,
+      functionSelectors: facet.functionSelectors.filter(selector => !replaced.has(selector)),
+    }))
     .filter(facet => facet.functionSelectors.length > 0);
 }
 
