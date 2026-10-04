@@ -163,6 +163,8 @@ const DeliveryRow = ({
       destination !== undefined &&
       typeof tokenBalance === "bigint" &&
       tokenBalance > 0n,
+    // An estimate that fails usually means the transfer reverts, and retrying would only hold Sweep disabled longer.
+    retry: false,
   });
   // When the estimate fails, Sweep stays enabled: sending estimates again, and the transactor shows why it fails.
   const isFeeShort = fee !== undefined && hbarBalance !== undefined && fee > hbarBalance.value;
