@@ -29,7 +29,7 @@ changes it on a canvas in Studio's Hedera build instead of in Solidity.
 | --- | --- |
 | Ecosystem integration (35) | HTS through Lattice's `HTSAdapter`, `TokenSale` and `StealthBuy`; Chainlink through `ChainlinkAdapter`; ERC-5564 and ERC-6538 through Lattice's `ERC5564Announcer` and `ERC6538Registry`; HIP-583 lazy account creation and HIP-904 automatic association for stealth deliveries; HIP-719 association in the app; mirror node log reads for the private inbox; HashScan links; the Scaffold-HBAR hooks, Debug Contracts and CLI manifest. |
 | Documentation (30) | `README.md` (with the private-purchase walkthrough and its privacy model), `AGENTS.md`, `packages/foundry/README.md`, natspec on every contract, the custom CLI outro. |
-| Code quality (20) | 66 Forge tests (one re-enters `buyFor` from the stealth address), 24 Node tests, 99 Vitest tests (the stealth-address math checked against vectors from ScopeLift's stealth-address-sdk), CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
+| Code quality (20) | 66 Forge tests (one re-enters `buyFor` from the stealth address), 24 Node tests, 102 Vitest tests (the stealth-address math checked against vectors from ScopeLift's stealth-address-sdk), CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
 | Hedera service depth (15) | Token creation with the diamond as treasury and `delegatableContractId` keys, treasury transfers with response-code handling, association, tinybar and weibar handling, a live upgrade on testnet, and stealth deliveries that create the recipient's account and associate it inside the purchase, with the hollow account completed by its own first transaction. |
 
 ## Notes for the developer experience survey
