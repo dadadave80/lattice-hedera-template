@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
+import { IHRC719 } from "@lattice/interfaces/external/hedera/IHRC719.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { TokenSale } from "../contracts/TokenSale.sol";
@@ -90,6 +91,56 @@ contract TokenSaleTest is SaleTestBase {
 
         vm.expectRevert(abi.encodeWithSelector(IChainlinkAdapter.ChainlinkStaleData.selector, HBAR_USD, 1, 1 hours));
         sale.quote(ONE_HBAR);
+    }
+
+    function test_buy_sendsTokensToTheBuyerAndKeepsTheHbar() public {
+        address token = _launch();
+        vm.startPrank(buyer);
+        IHRC719(token).associate();
+
+        vm.expectEmit(diamond);
+        emit ITokenSale.TokensPurchased(buyer, 10 * ONE_HBAR, 40 * ONE_TOKEN, 0.2e18);
+        int64 tokens = sale.buy{ value: 10 * ONE_HBAR }(40 * ONE_TOKEN);
+        vm.stopPrank();
+
+        assertEq(tokens, 40 * ONE_TOKEN);
+        assertEq(hts.balanceOf(token, buyer), 40 * ONE_TOKEN);
+        assertEq(hts.balanceOf(token, diamond), SUPPLY - 40 * ONE_TOKEN);
+        assertEq(diamond.balance, 10 * ONE_HBAR);
+
+        (,,,, int64 sold, uint256 raised) = sale.saleInfo();
+        assertEq(sold, 40 * ONE_TOKEN);
+        assertEq(raised, 10 * ONE_HBAR);
+    }
+
+    function test_buy_revertsUntilTheBuyerAssociates() public {
+        _launch();
+
+        vm.expectRevert(abi.encodeWithSelector(ITokenSale.TokenSaleBuyerNotAssociated.selector, buyer));
+        vm.prank(buyer);
+        sale.buy{ value: ONE_HBAR }(0);
+    }
+
+    function test_buy_revertsBelowTheBuyersMinimum() public {
+        address token = _launch();
+        vm.startPrank(buyer);
+        IHRC719(token).associate();
+
+        vm.expectRevert(abi.encodeWithSelector(ITokenSale.TokenSaleSlippage.selector, 4 * ONE_TOKEN, 5 * ONE_TOKEN));
+        sale.buy{ value: ONE_HBAR }(5 * ONE_TOKEN);
+        vm.stopPrank();
+    }
+
+    function test_buy_surfacesTheHtsResponseCodeWhenTheTreasuryRunsOut() public {
+        address token = _launch();
+        vm.deal(buyer, 300_000 * ONE_HBAR);
+        vm.startPrank(buyer);
+        IHRC719(token).associate();
+
+        // 300,000 HBAR would buy 1.2M tokens; the treasury holds 1M. HTS answers INSUFFICIENT_TOKEN_BALANCE.
+        vm.expectRevert(abi.encodeWithSelector(ITokenSale.TokenSaleTransferFailed.selector, int64(178)));
+        sale.buy{ value: 300_000 * ONE_HBAR }(0);
+        vm.stopPrank();
     }
 
     function test_storageSlot_followsErc7201() public pure {

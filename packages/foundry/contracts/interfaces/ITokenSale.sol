@@ -14,6 +14,9 @@ interface ITokenSale {
     /// @notice Emitted once, when the sale token is created and its price set.
     event SaleLaunched(address indexed token, int32 decimals, int64 supply, uint256 priceUsd);
 
+    /// @notice Emitted on every purchase. `hbarUsd` is the oracle answer the purchase was priced at.
+    event TokensPurchased(address indexed buyer, uint256 tinybars, int64 tokens, uint256 hbarUsd);
+
     /// @notice `launchSale` was called on a diamond that already sells `token`.
     error TokenSaleAlreadyLaunched(address token);
     /// @notice The sale has no token yet: `launchSale` has not been called.
@@ -24,6 +27,12 @@ interface ITokenSale {
     error TokenSaleInvalidDecimals(int32 decimals);
     /// @notice The payment buys no whole token unit, or more units than an `int64` can hold.
     error TokenSaleInvalidAmount();
+    /// @notice The payment buys fewer tokens than the buyer's `minTokens`.
+    error TokenSaleSlippage(int64 tokens, int64 minTokens);
+    /// @notice `buyer` must associate with the token before buying (HTS 184).
+    error TokenSaleBuyerNotAssociated(address buyer);
+    /// @notice HTS refused the transfer to the buyer with `responseCode`.
+    error TokenSaleTransferFailed(int64 responseCode);
 
     /// @notice Creates the sale token through HTS, with the diamond as treasury, and sets its price.
     /// @dev Caller must hold `DEFAULT_ADMIN_ROLE` and `HTS_MANAGER_ROLE`. `msg.value` pays the HTS creation
@@ -39,6 +48,10 @@ interface ITokenSale {
         int64 supply,
         uint256 priceUsd
     ) external payable returns (address token);
+
+    /// @notice Buys tokens with the HBAR sent. Reverts if that buys fewer than `minTokens`.
+    /// @return tokens Token units transferred to the caller.
+    function buy(int64 minTokens) external payable returns (int64 tokens);
 
     /// @notice Token units that `tinybars` buys at the current oracle rate.
     function quote(uint256 tinybars) external view returns (int64 tokens);

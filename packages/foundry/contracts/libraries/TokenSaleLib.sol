@@ -2,7 +2,9 @@
 pragma solidity ^0.8.30;
 
 import { AccessControlLib, DEFAULT_ADMIN_ROLE } from "@lattice/access/libraries/AccessControlLib.sol";
-import { HTSAdapterLib } from "@lattice/tokens/hedera/HTSAdapterLib.sol";
+import { HederaResponseCodes } from "@lattice/interfaces/external/hedera/HederaResponseCodes.sol";
+import { IHederaTokenService } from "@lattice/interfaces/external/hedera/IHederaTokenService.sol";
+import { HTSAdapterLib, HTS_SYSTEM_CONTRACT } from "@lattice/tokens/hedera/HTSAdapterLib.sol";
 import { InitializableLib } from "@lattice/utils/libraries/InitializableLib.sol";
 import { ITokenSale } from "../interfaces/ITokenSale.sol";
 
@@ -70,6 +72,18 @@ library TokenSaleLib {
         emit ITokenSale.SaleLaunched(token, decimals, supply, priceUsd);
     }
 
+    function buy(int64 minTokens) internal returns (int64 tokens) {
+        TokenSaleStorage storage $ = tokenSaleStorage();
+        uint256 hbarUsd = _hbarUsd($);
+        tokens = _tokensFor($, msg.value, hbarUsd);
+        if (tokens < minTokens) revert ITokenSale.TokenSaleSlippage(tokens, minTokens);
+
+        $.sold += tokens;
+        $.raised += msg.value;
+        emit ITokenSale.TokensPurchased(msg.sender, msg.value, tokens, hbarUsd);
+        _transferFromTreasury($.token, msg.sender, tokens);
+    }
+
     function quote(uint256 tinybars) internal view returns (int64 tokens) {
         TokenSaleStorage storage $ = tokenSaleStorage();
         return _tokensFor($, tinybars, _hbarUsd($));
@@ -96,5 +110,18 @@ library TokenSaleLib {
         if (units == 0 || units > MAX_TOKEN_UNITS) revert ITokenSale.TokenSaleInvalidAmount();
         // forge-lint: disable-next-line(unsafe-typecast)
         return int64(uint64(units));
+    }
+
+    /// @dev HTS returns a response code instead of reverting, so the code is checked here. The call is a plain
+    ///      `call` from the diamond: HTS sees the diamond as sender, and the diamond holds the tokens.
+    function _transferFromTreasury(address token, address to, int64 tokens) private {
+        (bool ok, bytes memory ret) = HTS_SYSTEM_CONTRACT.call(
+            abi.encodeCall(IHederaTokenService.transferToken, (token, address(this), to, tokens))
+        );
+        int64 code = ok ? abi.decode(ret, (int64)) : HederaResponseCodes.UNKNOWN;
+        if (code == HederaResponseCodes.TOKEN_NOT_ASSOCIATED_TO_ACCOUNT) {
+            revert ITokenSale.TokenSaleBuyerNotAssociated(to);
+        }
+        if (code != HederaResponseCodes.SUCCESS) revert ITokenSale.TokenSaleTransferFailed(code);
     }
 }
