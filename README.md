@@ -346,7 +346,7 @@ The SaucerSwap addresses are SaucerSwap's current ones ([contracts](https://docs
 
    `PoolSeeded` names the pair and the LP token, and `poolInfo()` now returns the reserves and the diamond's LP balance. The pair is a contract with an EVM address; its Hedera ID, from `https://mainnet.mirrornode.hedera.com/api/v1/contracts/<pair>`, gives its page at `https://www.saucerswap.finance/pool/<pair id>`. To move LP tokens out of the diamond, the admin calls `transferLiquidity(address to, int64 amount)`; `to` must already be associated with the LP token.
 
-6. **Hand over the keys.** Grant `DEFAULT_ADMIN_ROLE` (`0x00…00`) and `HTS_MANAGER_ROLE` (`cast keccak HTS_MANAGER_ROLE`) to the account that will hold them with `grantRole`, add guardians you can reach quickly with `addGuardian`, then remove the deployer with `removeGuardian` and `renounceRole`.
+6. **Hand over the keys.** Grant `DEFAULT_ADMIN_ROLE` (`0x00…00`) and `HTS_MANAGER_ROLE` (`cast keccak HTS_MANAGER_ROLE`) to the account that will hold them with `grantRole`, add guardians you can reach quickly with `addGuardian`, then remove the deployer with `removeGuardian` and with `renounceRole(role, deployer)` for each role, sent from the deployer, which passes its own address as confirmation.
 
 ### Costs
 
