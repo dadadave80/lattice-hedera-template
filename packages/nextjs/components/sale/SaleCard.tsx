@@ -113,6 +113,7 @@ export const SaleCard = () => {
     walletBalance !== undefined &&
     tinybarsToWeibars(tinybars) > walletBalance.value;
   const isShortOfTokens = quote !== undefined && typeof available === "bigint" && quote > available;
+  const minTokens = quote !== undefined ? minTokensOut(quote, SLIPPAGE_BPS) : undefined;
 
   const transactor = useTransactor();
   const { writeContractAsync: writeToken } = useWriteContract();
@@ -137,11 +138,11 @@ export const SaleCard = () => {
   };
 
   const buy = async () => {
-    if (tinybars === undefined || quote === undefined) return;
+    if (tinybars === undefined || minTokens === undefined) return;
     try {
       await writeDiamond({
         functionName: "buy",
-        args: [minTokensOut(quote, SLIPPAGE_BPS)],
+        args: [minTokens],
         // The contract sees tinybars; a transaction's value is denominated in weibars.
         value: tinybarsToWeibars(tinybars),
       });
@@ -198,6 +199,8 @@ export const SaleCard = () => {
       <p className="text-sm text-base-content/70 mt-2 mb-4">
         Sends {formatUnits(tinybars ?? 0n, TINYBAR_DECIMALS)} HBAR
         {quote !== undefined && ` · You receive about ${formatAmount(quote, sale.decimals)} ${symbol ?? ""}`}
+        {minTokens !== undefined &&
+          ` · at least ${formatAmount(minTokens, sale.decimals)} ${symbol ?? ""} (${formatAmount(SLIPPAGE_BPS, 2)}% slippage)`}
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
