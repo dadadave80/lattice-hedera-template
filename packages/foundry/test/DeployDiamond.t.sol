@@ -7,6 +7,7 @@ import { Facet, FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { Lattice } from "@lattice/Lattice.sol";
 import { IAccessControl } from "@lattice/interfaces/access/IAccessControl.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
+import { IPythAdapter } from "@lattice/interfaces/oracles/IPythAdapter.sol";
 import { IHTSAdapter } from "@lattice/interfaces/tokens/IHTSAdapter.sol";
 import { Test } from "forge-std/Test.sol";
 import { ITokenSale } from "../contracts/interfaces/ITokenSale.sol";
@@ -25,6 +26,7 @@ contract DeployDiamondHarness is DeployDiamond {
 }
 
 contract DeployDiamondTest is Test {
+    bytes4 internal constant LATEST_ANSWER = 0x084d4783;
     address internal constant HBAR_USD_FEED_TESTNET = 0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a;
 
     address internal admin = makeAddr("admin");
@@ -79,6 +81,15 @@ contract DeployDiamondTest is Test {
         assertEq(feedKey, bytes32("HBAR/USD"), "TokenSaleInit ran");
     }
 
+    function test_oracleSwap_routesLatestAnswerToThePythFacet() public {
+        (address diamond,, FacetCut[] memory cuts) = _diamond(vm.readFile("test/fixtures/pyth.recipe.json"));
+
+        address pythFacet = cuts[0].facetAddress; // PythAdapter is first in the fixture
+        assertEq(IDiamondLoupe(diamond).facetAddress(LATEST_ANSWER), pythFacet);
+        assertEq(IDiamondLoupe(diamond).facetAddress(IPythAdapter.updatePriceFeeds.selector), pythFacet);
+        assertEq(IPythAdapter(diamond).pyth(), 0xA2aa501b19aff244D90cc15a4Cf739D2725B5729, "PythAdapterInit ran");
+    }
+
     function test_build_revertsWhenAFacetIsNotCompiledIn() public {
         string memory json = vm.replace(recipe, '"ERC165Facet"', '"ERC165Facet", "RateLimiter"');
 
@@ -98,9 +109,47 @@ contract DeployDiamondTest is Test {
         deployer.build(json, admin);
     }
 
+    function test_build_revertsOnABundleInit() public {
+        string memory json = vm.replace(recipe, '"kind": "steps"', '"kind": "bundle"');
+
+        vm.expectRevert(bytes("Recipe: init.kind must be 'steps' or 'none'; 'bundle' inits are not supported yet"));
+        deployer.build(json, admin);
+    }
+
+    function test_build_revertsOnASelfReference() public {
+        string memory json = vm.replace(recipe, '"$ref": "deployer"', '"$ref": "self"');
+
+        vm.expectRevert(bytes('Recipe: only {"$ref": "deployer"} is supported; {"$ref": "self"} is not yet'));
+        deployer.build(json, admin);
+    }
+
+    function test_build_revertsOnAnInitItCannotEncode() public {
+        string memory json = vm.replace(
+            recipe,
+            '"spec": "ChainlinkAdapterInit",\n        "args": {',
+            '"spec": "ChainlinkAdapterInit",\n        "args": {\n          "extra": "0x0000000000000000000000000000000000000001",'
+        );
+
+        vm.expectRevert(
+            bytes(
+                "Recipe: ChainlinkAdapterInit takes arguments this template cannot encode yet; add an encoder in _initStep"
+            )
+        );
+        deployer.build(json, admin);
+    }
+
     function test_build_revertsOnAFileThatIsNotARecipe() public {
         vm.expectRevert(bytes("Recipe: diamond.recipe.json must be valid JSON with a 'facets' list of facet names"));
         deployer.build("{}", admin);
+    }
+
+    function test_build_acceptsARecipeWithNoInitSteps() public {
+        string memory json =
+            vm.replace(vm.readFile("test/fixtures/pyth.recipe.json"), '"kind": "steps"', '"kind": "none"');
+
+        (,, address[] memory inits,) = deployer.build(json, admin);
+
+        assertEq(inits.length, 3, "only the Hedera layer's initializers");
     }
 
     function test_run_refusesAChainThatIsNotHedera() public {
@@ -122,6 +171,15 @@ contract DeployDiamondTest is Test {
         assertEq(feed, HBAR_USD_FEED_TESTNET);
         // 365 days on testnet, unless your .env sets HBAR_USD_MAX_STALENESS.
         assertEq(maxStaleness, vm.envOr("HBAR_USD_MAX_STALENESS", uint256(365 days)));
+    }
+
+    function test_registerHbarUsdFeed_skipsADiamondWithoutChainlink() public {
+        address diamond = deployer.assemble(vm.readFile("test/fixtures/pyth.recipe.json"), address(deployer));
+
+        deployer.registerHbarUsdFeed(diamond); // must not revert
+
+        (bytes32 priceId,,) = IPythAdapter(diamond).getFeed("HBAR/USD");
+        assertEq(priceId, bytes32(0));
     }
 
     function test_writeRecord_savesWhatTheFrontendNeeds() public {

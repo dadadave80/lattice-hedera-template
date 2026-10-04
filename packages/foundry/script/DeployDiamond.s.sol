@@ -5,6 +5,7 @@ import { IDiamondLoupe } from "@diamond/interfaces/IDiamondLoupe.sol";
 import { FacetCut } from "@diamond/libraries/DiamondLib.sol";
 import { BaseDeploy } from "@lattice-script/base/BaseDeploy.s.sol";
 import { IChainlinkAdapter } from "@lattice/interfaces/oracles/IChainlinkAdapter.sol";
+import { PythAdapterInit } from "@lattice/oracles/pyth/PythAdapterInit.sol";
 import { HTSAdapterInit } from "@lattice/tokens/hedera/HTSAdapterInit.sol";
 import { DiamondIntrospectionInit } from "@lattice/utils/DiamondIntrospectionInit.sol";
 import { console } from "forge-std/console.sol";
@@ -105,19 +106,60 @@ contract DeployDiamond is BaseDeploy {
     }
 
     function _stepCount(string memory json) internal view returns (uint256 n) {
+        string memory kind = vm.parseJsonString(json, ".init.kind");
+        if (_eq(kind, "none")) return 0;
+        require(_eq(kind, "steps"), "Recipe: init.kind must be 'steps' or 'none'; 'bundle' inits are not supported yet");
         while (vm.keyExistsJson(json, string.concat(".init.steps[", vm.toString(n), "]"))) {
             ++n;
         }
     }
 
-    /// @dev Every initializer the recipe lists is called as `init(admin)`.
-    function _initStep(string memory json, uint256 i, address admin)
+    function _initStep(string memory json, uint256 i, address deployer)
         internal
         returns (address init, bytes memory data)
     {
-        string memory spec = vm.parseJsonString(json, string.concat(".init.steps[", vm.toString(i), "].spec"));
+        string memory step = string.concat(".init.steps[", vm.toString(i), "]");
+        string memory spec = vm.parseJsonString(json, string.concat(step, ".spec"));
+        _requireWired(spec);
+        string memory args = string.concat(step, ".args");
+        string[] memory keys = vm.parseJsonKeys(json, args);
         init = deployCode(string.concat(spec, ".sol:", spec));
-        data = abi.encodeWithSignature("init(address)", admin);
+
+        // Generic: any init whose only argument is `admin`.
+        if (keys.length == 1 && _eq(keys[0], "admin")) {
+            return
+                (init, abi.encodeWithSignature("init(address)", _addr(json, string.concat(args, ".admin"), deployer)));
+        }
+        if (_eq(spec, "PythAdapterInit")) {
+            return (
+                init,
+                abi.encodeCall(
+                    PythAdapterInit.init,
+                    (
+                        _addr(json, string.concat(args, ".admin"), deployer),
+                        _addr(json, string.concat(args, ".pyth"), deployer)
+                    )
+                )
+            );
+        }
+        revert(
+            string.concat(
+                "Recipe: ", spec, " takes arguments this template cannot encode yet; add an encoder in _initStep"
+            )
+        );
+    }
+
+    /// @dev A literal address, or `{"$ref": "deployer"}`.
+    function _addr(string memory json, string memory path, address deployer) internal view returns (address) {
+        string memory ref = string.concat(path, "['$ref']");
+        if (vm.keyExistsJson(json, ref)) {
+            require(
+                _eq(vm.parseJsonString(json, ref), "deployer"),
+                "Recipe: only {\"$ref\": \"deployer\"} is supported; {\"$ref\": \"self\"} is not yet"
+            );
+            return deployer;
+        }
+        return vm.parseJsonAddress(json, path);
     }
 
     /// @dev A facet can only be deployed by name if `contracts/LatticeFacets.sol` compiled it into this project.
@@ -130,6 +172,10 @@ contract DeployDiamond is BaseDeploy {
                 " is in the recipe but not compiled into this project; add its import to contracts/LatticeFacets.sol"
             )
         );
+    }
+
+    function _eq(string memory a, string memory b) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 
     // ── after the diamond exists ────────────────────────────────────────────────────────────────────
