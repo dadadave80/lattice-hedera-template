@@ -91,8 +91,12 @@ library SaucerSwapPoolLib {
         Seed memory seed;
         seed.token = TokenSaleLib.tokenSaleStorage().token;
         if (seed.token == address(0)) revert ITokenSale.TokenSaleNotLaunched();
-        if (tokens <= 0 || tinybars == 0 || minTokens < 0) revert ISaucerSwapPool.SaucerSwapPoolInvalidAmount();
-        // Both are non-negative `int64`s, checked above.
+        // The minimums are required even when no pool exists: if someone creates the pool before this transaction
+        // lands, the call adds to their pool at their price, and only the minimums stop it.
+        if (tokens <= 0 || tinybars == 0 || minTokens <= 0 || minTinybars == 0) {
+            revert ISaucerSwapPool.SaucerSwapPoolInvalidAmount();
+        }
+        // Both are positive `int64`s, checked above.
         // forge-lint: disable-next-line(unsafe-typecast)
         seed.units = uint256(uint64(tokens));
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -124,6 +128,20 @@ library SaucerSwapPoolLib {
         $.pair = seed.pair;
         $.lpToken = lp;
         emit ISaucerSwapPool.PoolSeeded(seed.pair, lp, seed.created, tokensAdded, tinybarsAdded, liquidity, seed.fee);
+    }
+
+    /// @notice See `ISaucerSwapPool.transferLiquidity`.
+    function transferLiquidity(address to, int64 amount) internal {
+        AccessControlLib.checkRole(DEFAULT_ADMIN_ROLE);
+        if (amount <= 0) revert ISaucerSwapPool.SaucerSwapPoolInvalidAmount();
+        address lp = saucerSwapPoolStorage().lpToken;
+        if (lp == address(0)) revert ISaucerSwapPool.SaucerSwapPoolNoLiquidity();
+        (bool ok, bytes memory ret) = HTS_SYSTEM_CONTRACT.call(
+            abi.encodeCall(IHederaTokenService.transferToken, (lp, address(this), to, amount))
+        );
+        int64 code = ok ? abi.decode(ret, (int64)) : HederaResponseCodes.UNKNOWN;
+        if (code != HederaResponseCodes.SUCCESS) revert ISaucerSwapPool.SaucerSwapPoolTransferFailed(code);
+        emit ISaucerSwapPool.LiquidityTransferred(lp, to, amount);
     }
 
     /// @notice See `ISaucerSwapPool.poolInfo`.
@@ -162,10 +180,11 @@ library SaucerSwapPoolLib {
     {
         _approve(seed.token, $.router, seed.units);
         if (seed.created) {
-            // The router takes every tinybar above the fee, so the pool opens at exactly `tinybars` to `units`.
+            // The router takes every tinybar above the fee, so the pool opens at exactly `tinybars` to `units`. It
+            // ignores the minimums here; they matter on the other branch.
             (tokensTaken, tinybarsAdded, liquidity) = ISaucerSwapV1Router($.router)
             .addLiquidityETHNewPool{ value: seed.tinybars + seed.fee }(
-                seed.token, seed.units, 0, 0, address(this), seed.deadline
+                seed.token, seed.units, seed.minTokens, seed.minTinybars, address(this), seed.deadline
             );
         } else {
             (tokensTaken, tinybarsAdded, liquidity) = ISaucerSwapV1Router($.router)

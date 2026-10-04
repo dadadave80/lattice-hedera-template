@@ -339,7 +339,7 @@ contract DeployDiamondTest is Test {
         string[] memory stealthSelectors = vm.parseJsonStringArray(record, ".selectors.StealthBuy");
         assertEq(stealthSelectors.length, 1);
         assertEq(stealthSelectors[0], vm.toString(abi.encodePacked(IStealthBuy.buyFor.selector)));
-        assertEq(vm.parseJsonStringArray(record, ".selectors.SaucerSwapPool").length, 2);
+        assertEq(vm.parseJsonStringArray(record, ".selectors.SaucerSwapPool").length, 3);
     }
 
     /// @dev Initializes a diamond from one `build`, so the returned cuts are the ones the diamond was made from.

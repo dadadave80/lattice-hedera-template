@@ -62,7 +62,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
         uint256 before = admin.balance;
 
         vm.prank(admin);
-        pool.seedPool{ value: POOL_HBAR + POOL_FEE }(POOL_TOKENS, POOL_HBAR, 0, 0, POOL_FEE, block.timestamp);
+        pool.seedPool{ value: POOL_HBAR + POOL_FEE }(POOL_TOKENS, POOL_HBAR, 1, 1, POOL_FEE, block.timestamp);
 
         assertEq(admin.balance, before - POOL_HBAR - POOL_FEE);
         assertEq(diamond.balance, 0);
@@ -85,7 +85,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
             abi.encodeWithSelector(ISaucerSwapPool.SaucerSwapPoolCreationFeeTooHigh.selector, POOL_FEE, POOL_FEE - 1)
         );
         vm.prank(admin);
-        pool.seedPool(POOL_TOKENS, POOL_HBAR, 0, 0, POOL_FEE - 1, block.timestamp);
+        pool.seedPool(POOL_TOKENS, POOL_HBAR, 1, 1, POOL_FEE - 1, block.timestamp);
     }
 
     function test_seedPool_revertsWhenTheDiamondCannotPayThePoolAndTheFee() public {
@@ -120,7 +120,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
 
         vm.expectRevert(bytes("UniswapV2Router: EXPIRED"));
         vm.prank(admin);
-        pool.seedPool(POOL_TOKENS, POOL_HBAR, 0, 0, POOL_FEE, deadline);
+        pool.seedPool(POOL_TOKENS, POOL_HBAR, 1, 1, POOL_FEE, deadline);
     }
 
     // ── an existing pool ────────────────────────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
         emit ISaucerSwapPool.PoolSeeded(
             address(_pair(token)), _pair(token).lpToken(), false, POOL_TOKENS, POOL_HBAR, 40e8, 0
         );
-        (int64 tokens, uint256 tinybars, uint256 liquidity) = _seed(100 * ONE_TOKEN, POOL_HBAR);
+        (int64 tokens, uint256 tinybars, uint256 liquidity) = _seed(100 * ONE_TOKEN, POOL_HBAR, POOL_TOKENS, POOL_HBAR);
 
         assertEq(tokens, POOL_TOKENS);
         assertEq(tinybars, POOL_HBAR);
@@ -151,7 +151,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
         uint256 balance = diamond.balance;
 
         // 40 tokens need only 10 of the 20 HBAR; the router refunds the rest through the `Receive` facet.
-        (int64 tokens, uint256 tinybars,) = _seed(40 * ONE_TOKEN, POOL_HBAR);
+        (int64 tokens, uint256 tinybars,) = _seed(40 * ONE_TOKEN, POOL_HBAR, 40 * ONE_TOKEN, 10 * ONE_HBAR);
 
         assertEq(tokens, 40 * ONE_TOKEN);
         assertEq(tinybars, 10 * ONE_HBAR);
@@ -166,7 +166,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
         // 20 HBAR takes only 80 of the 100 tokens offered.
         vm.expectRevert(bytes("UniswapV2Router: INSUFFICIENT_A_AMOUNT"));
         vm.prank(admin);
-        pool.seedPool(100 * ONE_TOKEN, POOL_HBAR, 90 * ONE_TOKEN, 0, 0, block.timestamp);
+        pool.seedPool(100 * ONE_TOKEN, POOL_HBAR, 90 * ONE_TOKEN, 1, 0, block.timestamp);
     }
 
     function test_seedPool_revertsWhenThePoolWouldTakeTooLittleHbar() public {
@@ -176,17 +176,45 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
         // 40 tokens take only 10 of the 20 HBAR offered.
         vm.expectRevert(bytes("UniswapV2Router: INSUFFICIENT_B_AMOUNT"));
         vm.prank(admin);
-        pool.seedPool(40 * ONE_TOKEN, POOL_HBAR, 0, 15 * ONE_HBAR, 0, block.timestamp);
+        pool.seedPool(40 * ONE_TOKEN, POOL_HBAR, 1, 15 * ONE_HBAR, 0, block.timestamp);
     }
 
-    function test_seedPool_refusesAPoolSomeoneSkewedFirstUnlessTheMinimumsAllowIt() public {
+    function test_seedPool_refusesAPoolSomeoneOpenedFirstAtACheaperPrice() public {
         _ready();
         // A holder opens the pool first at 100 tokens per HBAR, 25 times cheaper than the sale.
         _openPoolAs(buyer, 100 * ONE_TOKEN, ONE_HBAR);
 
+        // The admin's call was meant for a new pool at the sale price; the minimums stop it.
         vm.expectRevert(bytes("UniswapV2Router: INSUFFICIENT_B_AMOUNT"));
-        vm.prank(admin);
-        pool.seedPool(POOL_TOKENS, POOL_HBAR, POOL_TOKENS, POOL_HBAR * 95 / 100, 0, block.timestamp);
+        _seed(POOL_TOKENS, POOL_HBAR);
+    }
+
+    function test_seedPool_refusesAPoolSomeoneOpenedFirstAtADearerPrice() public {
+        _ready();
+        // 1 token per HBAR: the diamond would pour its HBAR in for a quarter of the tokens the sale gives.
+        _openPoolAs(buyer, ONE_TOKEN, ONE_HBAR);
+
+        vm.expectRevert(bytes("UniswapV2Router: INSUFFICIENT_A_AMOUNT"));
+        _seed(POOL_TOKENS, POOL_HBAR);
+    }
+
+    function test_seedPool_addsToAnEmptyPairSomeoneCreatedAtTheCallersPrice() public {
+        _ready();
+        vm.deal(buyer, buyer.balance + POOL_FEE);
+        vm.prank(buyer);
+        factory.createPair{ value: POOL_FEE }(token, WHBAR);
+        uint256 balance = diamond.balance;
+
+        vm.expectEmit(diamond);
+        emit ISaucerSwapPool.PoolSeeded(
+            address(_pair(token)), _pair(token).lpToken(), false, POOL_TOKENS, POOL_HBAR, FIRST_LIQUIDITY, 0
+        );
+        _seed(POOL_TOKENS, POOL_HBAR);
+
+        assertEq(diamond.balance, balance - POOL_HBAR, "no creation fee for a pair that exists");
+        (uint256 reserveTokens, uint256 reserveTinybars) = _reserves(_pair(token));
+        assertEq(reserveTokens, uint256(uint64(POOL_TOKENS)));
+        assertEq(reserveTinybars, POOL_HBAR);
     }
 
     function test_seedPool_associatesTheDiamondWithAnExistingPoolsLpToken() public {
@@ -228,7 +256,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, buyer, bytes32(0))
         );
         vm.prank(buyer);
-        pool.seedPool(POOL_TOKENS, POOL_HBAR, 0, 0, POOL_FEE, block.timestamp);
+        pool.seedPool(POOL_TOKENS, POOL_HBAR, 1, 1, POOL_FEE, block.timestamp);
     }
 
     function test_seedPool_revertsWhileTheEmergencyStopIsActive() public {
@@ -238,7 +266,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
         IEmergencyStop(diamond).emergencyStop("oracle incident");
 
         vm.expectRevert(IEmergencyStop.EmergencyStopActive.selector);
-        pool.seedPool(POOL_TOKENS, POOL_HBAR, 0, 0, POOL_FEE, block.timestamp);
+        pool.seedPool(POOL_TOKENS, POOL_HBAR, 1, 1, POOL_FEE, block.timestamp);
         vm.stopPrank();
     }
 
@@ -252,11 +280,16 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
 
         vm.startPrank(admin);
         vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolInvalidAmount.selector);
-        pool.seedPool(0, POOL_HBAR, 0, 0, POOL_FEE, block.timestamp);
+        pool.seedPool(0, POOL_HBAR, 1, 1, POOL_FEE, block.timestamp);
         vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolInvalidAmount.selector);
-        pool.seedPool(POOL_TOKENS, 0, 0, 0, POOL_FEE, block.timestamp);
+        pool.seedPool(POOL_TOKENS, 0, 1, 1, POOL_FEE, block.timestamp);
         vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolInvalidAmount.selector);
-        pool.seedPool(POOL_TOKENS, POOL_HBAR, -1, 0, POOL_FEE, block.timestamp);
+        pool.seedPool(POOL_TOKENS, POOL_HBAR, -1, 1, POOL_FEE, block.timestamp);
+        // Zero minimums would let a pool someone opened first set the price.
+        vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolInvalidAmount.selector);
+        pool.seedPool(POOL_TOKENS, POOL_HBAR, 0, 1, POOL_FEE, block.timestamp);
+        vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolInvalidAmount.selector);
+        pool.seedPool(POOL_TOKENS, POOL_HBAR, 1, 0, POOL_FEE, block.timestamp);
         vm.stopPrank();
     }
 
@@ -276,6 +309,86 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
 
         vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolNotConfigured.selector);
         _seed(POOL_TOKENS, POOL_HBAR);
+    }
+
+    // ── moving the LP tokens ────────────────────────────────────────────────────────────────────────
+
+    function test_transferLiquidity_movesTheDiamondsLpTokens() public {
+        _ready();
+        _seed(POOL_TOKENS, POOL_HBAR);
+        address lp = _pair(token).lpToken();
+        address treasury = makeAddr("treasury");
+        vm.prank(treasury);
+        hts.associateToken(treasury, lp);
+        int64 amount = int64(uint64(FIRST_LIQUIDITY / 4));
+
+        vm.expectEmit(diamond);
+        emit ISaucerSwapPool.LiquidityTransferred(lp, treasury, amount);
+        vm.prank(admin);
+        pool.transferLiquidity(treasury, amount);
+
+        assertEq(hts.balanceOf(lp, treasury), amount);
+        assertEq(hts.balanceOf(lp, diamond), int64(uint64(FIRST_LIQUIDITY)) - amount);
+    }
+
+    function test_transferLiquidity_worksWhileTheEmergencyStopIsActive() public {
+        _ready();
+        _seed(POOL_TOKENS, POOL_HBAR);
+        address lp = _pair(token).lpToken();
+        vm.startPrank(admin);
+        hts.associateToken(admin, lp);
+        IEmergencyStop(diamond).addGuardian(admin);
+        IEmergencyStop(diamond).emergencyStop("oracle incident");
+
+        pool.transferLiquidity(admin, 1);
+        vm.stopPrank();
+
+        assertEq(hts.balanceOf(lp, admin), 1);
+    }
+
+    function test_transferLiquidity_revertsWithTheHtsCode() public {
+        _ready();
+        _seed(POOL_TOKENS, POOL_HBAR);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISaucerSwapPool.SaucerSwapPoolTransferFailed.selector,
+                HederaResponseCodes.TOKEN_NOT_ASSOCIATED_TO_ACCOUNT
+            )
+        );
+        vm.prank(admin);
+        pool.transferLiquidity(makeAddr("unassociated"), 1);
+    }
+
+    function test_transferLiquidity_revertsBeforeTheDiamondHoldsLiquidity() public {
+        _ready();
+
+        vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolNoLiquidity.selector);
+        vm.prank(admin);
+        pool.transferLiquidity(admin, 1);
+    }
+
+    function test_transferLiquidity_revertsOnAnAmountItCannotMove() public {
+        _ready();
+        _seed(POOL_TOKENS, POOL_HBAR);
+
+        vm.startPrank(admin);
+        vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolInvalidAmount.selector);
+        pool.transferLiquidity(admin, 0);
+        vm.expectRevert(ISaucerSwapPool.SaucerSwapPoolInvalidAmount.selector);
+        pool.transferLiquidity(admin, -1);
+        vm.stopPrank();
+    }
+
+    function test_transferLiquidity_revertsForAnyoneButTheAdmin() public {
+        _ready();
+        _seed(POOL_TOKENS, POOL_HBAR);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, buyer, bytes32(0))
+        );
+        vm.prank(buyer);
+        pool.transferLiquidity(buyer, 1);
     }
 
     // ── the sale afterwards ─────────────────────────────────────────────────────────────────────────
@@ -343,7 +456,7 @@ contract SaucerSwapPoolTest is SaucerSwapTestBase {
         address facet = IDiamondLoupe(diamond).facetAddress(ISaucerSwapPool.seedPool.selector);
         bytes memory exported = IERC8153(facet).exportSelectors();
 
-        assertEq(exported.length, 2 * 4);
+        assertEq(exported.length, 3 * 4);
         _assertExportsItsAbi("SaucerSwapPool", exported);
         for (uint256 i; i < exported.length / 4; ++i) {
             assertEq(IDiamondLoupe(diamond).facetAddress(_selectorAt(exported, i)), facet, "routed to the facet");

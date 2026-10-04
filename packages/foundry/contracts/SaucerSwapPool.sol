@@ -22,6 +22,11 @@ contract SaucerSwapPool is ISaucerSwapPool {
     }
 
     /// @inheritdoc ISaucerSwapPool
+    function transferLiquidity(address to, int64 amount) external virtual {
+        SaucerSwapPoolLib.transferLiquidity(to, amount);
+    }
+
+    /// @inheritdoc ISaucerSwapPool
     function poolInfo() external view virtual returns (PoolInfo memory info) {
         return SaucerSwapPoolLib.poolInfo();
     }
@@ -30,7 +35,8 @@ contract SaucerSwapPool is ISaucerSwapPool {
     /// @dev Never includes `exportSelectors()` itself. `test/SaucerSwapPool.t.sol` checks this list against the ABI.
     ///      `seedPool(int64,uint256,int64,uint256,uint256,uint256)` 0x55650bd1
     ///      `poolInfo()` 0x5a2f3d09
+    ///      `transferLiquidity(address,int64)` 0x001cf43d
     function exportSelectors() external pure virtual returns (bytes memory selectors) {
-        selectors = hex"55650bd15a2f3d09";
+        selectors = hex"55650bd15a2f3d09001cf43d";
     }
 }

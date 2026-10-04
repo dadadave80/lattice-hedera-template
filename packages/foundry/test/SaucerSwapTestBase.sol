@@ -71,9 +71,17 @@ abstract contract SaucerSwapTestBase is SaleTestBase {
         vm.stopPrank();
     }
 
+    /// @dev Seeds with 99% minimums, as the facet's NatSpec tells an admin to.
     function _seed(int64 tokens, uint256 tinybars) internal returns (int64, uint256, uint256) {
+        return _seed(tokens, tinybars, tokens * 99 / 100, tinybars * 99 / 100);
+    }
+
+    function _seed(int64 tokens, uint256 tinybars, int64 minTokens, uint256 minTinybars)
+        internal
+        returns (int64, uint256, uint256)
+    {
         vm.prank(admin);
-        return pool.seedPool(tokens, tinybars, 0, 0, type(uint256).max, block.timestamp);
+        return pool.seedPool(tokens, tinybars, minTokens, minTinybars, type(uint256).max, block.timestamp);
     }
 
     function _pair(address token) internal view returns (MockSaucerSwapV1Pair) {

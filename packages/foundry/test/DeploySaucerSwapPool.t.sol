@@ -62,7 +62,7 @@ contract DeploySaucerSwapPoolTest is SaucerSwapTestBase {
         assertEq(names[0], "SaucerSwapPool");
         assertEq(IDiamondLoupe(diamond).facets().length, before + 1);
         assertEq(uint8(cuts[0].action), uint8(FacetCutAction.Add));
-        assertEq(cuts[0].functionSelectors.length, 2);
+        assertEq(cuts[0].functionSelectors.length, 3);
         for (uint256 j; j < cuts[0].functionSelectors.length; ++j) {
             assertEq(IDiamondLoupe(diamond).facetAddress(cuts[0].functionSelectors[j]), cuts[0].facetAddress);
         }
@@ -129,9 +129,10 @@ contract DeploySaucerSwapPoolTest is SaucerSwapTestBase {
         assertEq(facets[2], "SaucerSwapPool");
         assertEq(vm.parseJsonStringArray(record, ".selectors.TokenSale").length, 6);
         string[] memory selectors = vm.parseJsonStringArray(record, ".selectors.SaucerSwapPool");
-        assertEq(selectors.length, 2);
+        assertEq(selectors.length, 3);
         assertEq(selectors[0], vm.toString(abi.encodePacked(ISaucerSwapPool.seedPool.selector)));
         assertEq(selectors[1], vm.toString(abi.encodePacked(ISaucerSwapPool.poolInfo.selector)));
+        assertEq(selectors[2], vm.toString(abi.encodePacked(ISaucerSwapPool.transferLiquidity.selector)));
     }
 
     function test_run_refusesAChainWithNoRecordedDiamond() public {
