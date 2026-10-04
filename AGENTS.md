@@ -62,8 +62,8 @@ Run one Forge test from `packages/foundry`: `forge test --match-test test_buy_se
 | `packages/foundry/scripts-js/diamondAbi.js` | Merges facet ABIs into the `Diamond` ABI. |
 | `packages/foundry/scripts-js/verifyDeployment.js` | Runs after a Hedera deploy: verifies on Sourcify every contract the broadcast record lists. |
 | `packages/foundry/lib/lattice` | Lattice, pinned by tag in `foundry.lock`. Do not edit. |
-| `packages/nextjs/app/page.tsx` | Sale page: `components/sale/SaleCard.tsx` and `AdminCard.tsx`. |
-| `packages/nextjs/app/private/page.tsx` | Private page: `components/private/PrivatePurchases.tsx`, which holds the derived keys and renders `ReceiveCard.tsx`, `BuyPrivatelyCard.tsx` and `InboxCard.tsx`. |
+| `packages/nextjs/app/page.tsx` | Private page, at `/`, where the app opens: `components/private/PrivatePurchases.tsx`, which holds the derived keys and renders `ReceiveCard.tsx`, `BuyPrivatelyCard.tsx` and `InboxCard.tsx`. |
+| `packages/nextjs/app/sale/page.tsx` | Sale page, at `/sale`: `components/sale/SaleCard.tsx` and `AdminCard.tsx`. |
 | `packages/nextjs/app/diamond/page.tsx` | Diamond page: `components/diamond/FacetTable.tsx`, `StudioCard.tsx` and `UpgradeCard.tsx`. |
 | `packages/nextjs/utils/sale/units.ts` | Tinybar and weibar conversion. |
 | `packages/nextjs/utils/diamond/planCut.ts` | Turns a facet's exported selectors into Add and Replace cuts. |

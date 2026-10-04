@@ -59,12 +59,12 @@ yarn foundry:test   # contracts and scripts, against mocks: no chain needed
 yarn next:dev       # http://localhost:3000
 ```
 
-The app opens on the sale. Connect a wallet on Hedera Testnet, get HBAR from the faucet link, then:
+The app opens on the **Private** page, which buys the sale's token for someone else without naming them on chain (see [Private purchases](#private-purchases)). To buy for yourself, open the **Sale** page at `/sale`, connect a wallet on Hedera Testnet, get HBAR from the faucet link, then:
 
 1. **Associate.** On Hedera an account must opt in to a token before it can receive it. The button sends that one transaction. An account created by sending HBAR to an EVM address, as MetaMask and burner accounts are, has unlimited automatic associations ([HIP-904](https://hips.hedera.com/hip/hip-904)), so its first purchase associates it and this step is optional.
 2. **Buy.** Type an HBAR amount, read the quote, confirm.
 
-The **Private** page buys for someone else without naming them on chain (see [Private purchases](#private-purchases)). The **Diamond** page lists every facet behind the address and the functions each one serves. **Debug Contracts** lets you call any of them.
+The **Diamond** page lists every facet behind the address and the functions each one serves. **Debug Contracts** lets you call any of them.
 
 ## Deploy your own diamond
 
@@ -85,7 +85,7 @@ The deploy command:
 5. rewrites `packages/nextjs/contracts/deployedContracts.ts`, so the app now points at your diamond;
 6. verifies every contract it created on Sourcify, so HashScan shows the source. A contract that is already verified is skipped.
 
-Then create the token. Either import the deployer key into your wallet (`yarn foundry:account:reveal-pk`) and use the **Admin** card on the sale page, or send it from the terminal:
+Then create the token. Either import the deployer key into your wallet (`yarn foundry:account:reveal-pk`) and use the **Admin** card on the **Sale** page (`/sale`), or send it from the terminal:
 
 ```bash
 cast send <your diamond> \
@@ -131,8 +131,8 @@ A facet marked *recipe* is a Lattice facet named in `packages/foundry/diamond.re
 | `packages/foundry/contracts/UpgradeMultiInit.sol` | Runs Lattice initializers inside a cut on a diamond that already exists. |
 | `packages/foundry/contracts/TokenSaleV2.sol` | The facet used in the upgrade walkthrough. |
 | `packages/foundry/scripts-js/generateTsAbis.js` | Gives the frontend one `Diamond` contract whose ABI is the union of its facets. |
-| `packages/nextjs/app/page.tsx` | The sale page. |
-| `packages/nextjs/app/private/page.tsx` | The Private page: register, buy for someone privately, and the inbox. |
+| `packages/nextjs/app/page.tsx` | The Private page, where the app opens: register, buy for someone privately, and the inbox. |
+| `packages/nextjs/app/sale/page.tsx` | The Sale page, at `/sale`. |
 | `packages/nextjs/utils/stealth/` | ERC-5564 stealth-address math and the announcement scan, with their tests. |
 | `packages/nextjs/app/diamond/page.tsx` | The facet table, the Lattice Studio card and the upgrade tool. |
 

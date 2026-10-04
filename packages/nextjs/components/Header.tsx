@@ -22,13 +22,13 @@ type HeaderMenuLink = {
 
 export const menuLinks: HeaderMenuLink[] = [
   {
-    label: "Sale",
+    label: "Private",
     href: "/",
+    icon: <EyeSlashIcon className="h-4 w-4" />,
   },
   {
-    label: "Private",
-    href: "/private",
-    icon: <EyeSlashIcon className="h-4 w-4" />,
+    label: "Sale",
+    href: "/sale",
   },
   {
     label: "Diamond",

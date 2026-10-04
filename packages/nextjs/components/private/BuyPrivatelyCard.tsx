@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { HbarInput, HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { Address, Hex, erc20Abi, formatUnits, isAddress, zeroAddress } from "viem";
 import { useAccount, useBalance, useConfig, useReadContract, useWriteContract } from "wagmi";
@@ -133,7 +134,13 @@ export const BuyPrivatelyCard = () => {
       </p>
 
       {!sale.isLaunched ? (
-        <p className="text-sm m-0 mt-4">No token on sale yet.</p>
+        <p className="text-sm m-0 mt-4">
+          No token on sale yet. The diamond&apos;s admin launches the sale on the{" "}
+          <Link href="/sale" className="link">
+            Sale page
+          </Link>
+          .
+        </p>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
