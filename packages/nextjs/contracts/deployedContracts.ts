@@ -2186,12 +2186,324 @@ const deployedContracts = {
           outputs: [],
           stateMutability: "nonpayable",
         },
+        {
+          type: "function",
+          name: "poolInfo",
+          inputs: [],
+          outputs: [
+            {
+              name: "info",
+              type: "tuple",
+              internalType: "struct ISaucerSwapPool.PoolInfo",
+              components: [
+                {
+                  name: "router",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "factory",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "whbar",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "pair",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "lpToken",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "lpBalance",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "lpTotalSupply",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "reserveTokens",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "reserveTinybars",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "creationFee",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "seedPool",
+          inputs: [
+            {
+              name: "tokens",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "minTokens",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "minTinybars",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maxCreationFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "deadline",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokensAdded",
+              type: "int64",
+              internalType: "int64",
+            },
+            {
+              name: "tinybarsAdded",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "liquidity",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "transferLiquidity",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "event",
+          name: "LiquidityTransferred",
+          inputs: [
+            {
+              name: "lpToken",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PoolSeeded",
+          inputs: [
+            {
+              name: "pair",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "lpToken",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "created",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+            {
+              name: "tokens",
+              type: "int64",
+              indexed: false,
+              internalType: "int64",
+            },
+            {
+              name: "tinybars",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "liquidity",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "creationFee",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "HederaExchangeRateCallFailed",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolApproveFailed",
+          inputs: [
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolAssociateFailed",
+          inputs: [
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolCreationFeeTooHigh",
+          inputs: [
+            {
+              name: "fee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maxCreationFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolInsufficientHbar",
+          inputs: [
+            {
+              name: "needed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "balance",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolInsufficientTokens",
+          inputs: [
+            {
+              name: "needed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "balance",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolInvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolNoLiquidity",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolNotConfigured",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SaucerSwapPoolTransferFailed",
+          inputs: [
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
       ],
       inheritedFunctions: {},
       deployedOnBlock: 41335269,
     },
     TokenSaleV2: {
-      address: "0x8932beed35e4117fba050dea2e585b8559ada738",
+      address: "0xb6391868e9a471129467c6a86312b9d34d9072a0",
       abi: [
         {
           type: "function",
@@ -2795,7 +3107,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 41335815,
+      deployedOnBlock: 41366899,
     },
   },
 } as const;
