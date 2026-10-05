@@ -80,7 +80,7 @@ yarn foundry:account:generate                # creates an encrypted keystore and
 yarn foundry:deploy --network hedera_testnet
 ```
 
-Have about 80 testnet HBAR in the account: up to 60 for the deployment and 20 for creating the token. A first deployment sends up to 26 transactions: one per facet and initializer (the recipe's 10 facets and 4 init steps, this project's 3 facets and 3 initializers), Lattice's `MultiInit`, `LatticeRegistry` and `LatticeFactory`, the diamond, the feed registration and the guardian. Lattice facets land on deterministic addresses, so a facet that is already on the network is reused and later deployments send fewer. Creating the token in the next step sends 20 HBAR to cover the network's creation fee. Hedera deducts only the fee ([HIP-358](https://hips.hedera.com/hip/hip-358)). The rest stays in the diamond, and the admin can withdraw it.
+Have about 80 testnet HBAR in the account: up to 60 for the deployment and 20 for creating the token. A first deployment sends up to 26 transactions: one per facet and initializer (the recipe's 10 facets and 4 init steps, the 3 facets and 3 initializers the deploy script appends), Lattice's `MultiInit`, `LatticeRegistry` and `LatticeFactory`, the diamond, the feed registration and the guardian. Lattice facets land on deterministic addresses, so a facet that is already on the network is reused and later deployments send fewer. Creating the token in the next step sends 20 HBAR to cover the network's creation fee. Hedera deducts only the fee ([HIP-358](https://hips.hedera.com/hip/hip-358)). The rest stays in the diamond, and the admin can withdraw it.
 
 The deploy command:
 
