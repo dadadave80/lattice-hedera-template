@@ -449,4 +449,6 @@ Environment variables are optional. No private key goes in any `.env`; deploys s
 - [SaucerSwap docs](https://docs.saucerswap.finance/)
 - [ERC-5564](https://eips.ethereum.org/EIPS/eip-5564), [ERC-6538](https://eips.ethereum.org/EIPS/eip-6538), [HIP-583](https://hips.hedera.com/hip/hip-583), [HIP-904](https://hips.hedera.com/hip/hip-904)
 
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). Report vulnerabilities privately as [SECURITY.md](SECURITY.md) describes.
+
 MIT licensed. See [LICENCE](LICENCE).
