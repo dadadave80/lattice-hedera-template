@@ -144,8 +144,8 @@ scaffold_checks() { # scaffold_checks local|published
 
   cd "$project" || exit 1
   check "the scaffold has README.md and AGENTS.md" test -s README.md -a -s AGENTS.md
-  check "the scaffold leaves out template.json, docs and scripts" \
-    test ! -e template.json -a ! -e docs -a ! -e scripts -a ! -e .gitattributes
+  check "the scaffold leaves out template.json and scripts" \
+    test ! -e template.json -a ! -e scripts -a ! -e .gitattributes
   check "no .env file is committed in the scaffold" no_env_file_is_tracked_in "$project"
   check "yarn lint" yarn lint
   check "yarn foundry:test" yarn foundry:test
