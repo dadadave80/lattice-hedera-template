@@ -7,7 +7,7 @@ Bounty: Scaffold-HBAR Template Bounty. Submissions close Sunday 4 October 2026, 
 | Field | Value |
 | --- | --- |
 | Public GitHub repository | https://github.com/dadadave80/lattice-hedera-template |
-| HashScan link | https://hashscan.io/testnet/transaction/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006 (a private purchase: one account pays, and the tokens go to a stealth account the purchase creates; on the mirror node, https://testnet.mirrornode.hedera.com/api/v1/contracts/results/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006), or the upgrade to `TokenSaleV2`, https://hashscan.io/testnet/transaction/0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f |
+| HashScan link | https://hashscan.io/testnet/transaction/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006 (a private purchase: one account pays, and the tokens go to a stealth account the purchase creates; on the mirror node, https://testnet.mirrornode.hedera.com/api/v1/contracts/results/0x33d9fd88062301e4607b1438c0f45e6bf731294ad6901f55d8cb2da75ae26006), or the diamond seeding a SaucerSwap pool at the sale's Chainlink price with `seedPool` (creates the LST/WHBAR pair, 7,579,582 gas), https://hashscan.io/testnet/transaction/0x8a1b853048fe2211757d30f5a416440c8214517b3adefade6bac03fc9d5fa103, or the upgrade to `TokenSaleV2`, https://hashscan.io/testnet/transaction/0xe0720ff59f10e754f01e34c5633b6e31d9fef2e9028c7f1568a2a40a0b4cfd1f |
 | Scaffold command | `npm create scaffold-hbar@latest -- --template dadadave80/lattice-hedera-template` |
 | Hedera Harness | Not used. The template was built with Claude Code and the project's `AGENTS.md`. |
 | Developer experience survey | answered by David, using the notes below |
@@ -17,7 +17,9 @@ Bounty: Scaffold-HBAR Template Bounty. Submissions close Sunday 4 October 2026, 
 An upgradeable HTS token sale on a Lattice diamond, priced in USD by Chainlink. One contract address creates an
 HTS token through the Hedera Token Service and sells it for HBAR at a USD price: every purchase reads the
 Chainlink HBAR/USD feed, so the price holds in dollars while HBAR moves, and no one re-prices the sale by hand.
-The diamond is upgraded in place with one `diamondCut` from the app. Every Lattice facet in it, `HTSAdapter`
+Then the sale graduates into liquidity: `seedPool` has the diamond create the token/WHBAR pool on SaucerSwap V1
+from its own tokens and proceeds, at the price the sale quotes from Chainlink, and keep the LP tokens, while the
+sale goes on selling what it has left. The diamond is upgraded in place with one `diamondCut` from the app. Every Lattice facet in it, `HTSAdapter`
 included, is listed in a Lattice Studio recipe file, so a developer changes it on a canvas in Studio's Hedera
 build instead of in Solidity. What shows Hedera's depth is the private purchase: a buyer pays someone who has no
 account, no token association and no HBAR, in one transaction. The tokens land on a one-time ERC-5564 stealth
@@ -30,10 +32,10 @@ gift, a grant or a payroll run can reach people this way without naming them on 
 
 | Criterion | Where |
 | --- | --- |
-| Ecosystem integration (35) | Chainlink HBAR/USD, and the sale depends on it. The sale is priced in USD while buyers pay HBAR, so every `buy`, `buyFor` and `quote` reads the feed at `0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a` on testnet, through the diamond's `latestAnswer(bytes32)`. Lattice's `ChainlinkAdapter` rejects stale, non-positive and incomplete-round answers and normalizes the price to 18 decimals. Without the feed, the admin would have to re-price the sale by hand as HBAR moves. Pyth can replace it by a change to the recipe; `TokenSale` does not change. A purchase priced by it: https://hashscan.io/testnet/transaction/0xa3e016063a4eefafb6773540c1f5b6efb898abd3eab72bac92356b6bb9e62cc9 |
-| Documentation (30) | `README.md` (with the private-purchase walkthrough and its privacy model), `AGENTS.md`, `packages/foundry/README.md`, natspec on every contract, the custom CLI outro. |
-| Code quality (20) | 73 Forge tests (one re-enters `buyFor` from the stealth address), 26 Node tests, 114 Vitest tests (the stealth-address math checked against vectors from ScopeLift's stealth-address-sdk), CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
-| Hedera service depth (15) | HTS through Lattice's `HTSAdapter`, `TokenSale` and `StealthBuy`: token creation with the diamond as treasury and `delegatableContractId` keys, treasury transfers with response-code handling, HIP-719 association in the app, tinybar and weibar handling, and a live upgrade on testnet. Stealth deliveries create the recipient's account (HIP-583) and associate it (HIP-904) inside the purchase, and the hollow account is completed by its own first transaction. The recipient finds deliveries through mirror node log reads; ERC-5564 and ERC-6538 come from Lattice's `ERC5564Announcer` and `ERC6538Registry`. |
+| Ecosystem integration (35) | Chainlink HBAR/USD and SaucerSwap, used together: the token launches at a Chainlink price and graduates into a SaucerSwap pool at that same price. Chainlink: the sale depends on it. The sale is priced in USD while buyers pay HBAR, so every `buy`, `buyFor` and `quote` reads the feed at `0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a` on testnet, through the diamond's `latestAnswer(bytes32)`. Lattice's `ChainlinkAdapter` rejects stale, non-positive and incomplete-round answers and normalizes the price to 18 decimals. Without the feed, the admin would have to re-price the sale by hand as HBAR moves. Pyth can replace it by a change to the recipe; `TokenSale` does not change. A purchase priced by it: https://hashscan.io/testnet/transaction/0xa3e016063a4eefafb6773540c1f5b6efb898abd3eab72bac92356b6bb9e62cc9. SaucerSwap: the `SaucerSwapPool` facet (cut into the live diamond in https://hashscan.io/testnet/transaction/0x327451c239e385f33a4a5b7f2bde0b45c0e17da5a65ef894ff32a420cbc3233d) adds the diamond's tokens and HBAR to SaucerSwap V1's token/WHBAR pool, creating it at exactly `quote(tinybars)` (Chainlink rate, `TokenSaleV2` bonus included), paying SaucerSwap's USD-set creation fee converted at the network's exchange rate, and keeping the LP tokens. On testnet `seedPool` created the LST/WHBAR pair `0xD746512855f8677fb2fce52c5B22A734451bef6D` with 21.881139 LST and 10 HBAR, the sale's quote for 10 HBAR, for a 19.25 HBAR ($2) creation fee: https://hashscan.io/testnet/transaction/0x8a1b853048fe2211757d30f5a416440c8214517b3adefade6bac03fc9d5fa103. The Sale page's pool card shows the pool's price against the sale's and lets the admin seed it. |
+| Documentation (30) | `README.md` (with the private-purchase walkthrough and its privacy model, the SaucerSwap pool section with its testnet proof and the mainnet launch guide), `AGENTS.md`, `packages/foundry/README.md`, natspec on every contract, the custom CLI outro. |
+| Code quality (20) | 113 Forge tests (one re-enters `buyFor` from the stealth address; the pool against a SaucerSwap V1 mock, including a pool someone opened first at another price), 26 Node tests, 141 Vitest tests (the stealth-address math checked against vectors from ScopeLift's stealth-address-sdk), CI, `forge fmt` and ESLint clean, `scripts/gate.sh`. |
+| Hedera service depth (15) | HTS through Lattice's `HTSAdapter`, `TokenSale` and `StealthBuy`: token creation with the diamond as treasury and `delegatableContractId` keys, treasury transfers with response-code handling, HIP-719 association in the app, tinybar and weibar handling, and a live upgrade on testnet. `SaucerSwapPool` makes the diamond a DEX liquidity provider through HTS: an HTS `approve` of the router as the token's owner (withdrawn after), association with an existing pool's LP token, and the creation fee converted from tinycents through the exchange-rate system contract `0x168`. Stealth deliveries create the recipient's account (HIP-583) and associate it (HIP-904) inside the purchase, and the hollow account is completed by its own first transaction. The recipient finds deliveries through mirror node log reads; ERC-5564 and ERC-6538 come from Lattice's `ERC5564Announcer` and `ERC6538Registry`. |
 
 ## Notes for the developer experience survey
 
@@ -116,3 +118,22 @@ From building private purchases:
   disables a wallet's buttons until it holds HBAR.
 - The mirror node searches contract logs by topic only within a timestamp range of at most 7 days. Reading
   every announcement a contract has made takes one search per week of its history.
+
+From adding the SaucerSwap pool:
+
+- SaucerSwap V1's factory sets the pool creation fee in tinycents (`pairCreateFee()`, $2 on testnet, $50 on
+  mainnet), and the router expects it in tinybars in `msg.value`. A contract that creates a pool has to convert it
+  through the exchange-rate system contract at `0x168` in the same transaction; the testnet pool cost 19.25 HBAR.
+  A caller needs a margin on the fee, because the rate can move between reading it and the transaction landing.
+- The router pulls the token with an HTS allowance. From a diamond the `approve` has to be a plain `call` to
+  `0x167`, so HTS records the diamond as the owner; whatever the router leaves unused is withdrawn after.
+- The diamond must be associated with the LP token before it receives it. A new pool's LP token does not exist
+  until the router call, so only an existing pool's can be associated ahead; a contract deployed through the
+  relay has unlimited automatic associations and takes a new one anyway.
+- Creating the pool through the diamond used 7,579,582 gas (a wallet calling the router used 6.8 million on
+  testnet and 7.5 million on mainnet). The relay refuses a limit over 15 million and its estimate is not reliable
+  for HTS calls, so the app sets 12 million. Debug Contracts cannot set a gas limit, so it cannot send `seedPool`.
+- SaucerSwap's pair pages take the pair's `0.0.N` id, but a pair is a CREATE2 contract with no long-zero address;
+  the id comes from the mirror node.
+- `forge script` cannot simulate the HTS calls in `seedPool`, so the pool is seeded by a separate transaction
+  after the cut, like `launchSale`.
